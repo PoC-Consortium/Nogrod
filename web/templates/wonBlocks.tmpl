@@ -1,0 +1,40 @@
+{{ define "wonBlocks" }}
+
+<table class="table" id="won-block-table">
+  <thead>
+    <th data-sort="int"><i class="sort-toggle fa fa-sort" aria-hidden="true"></i>Height</th>
+    <th data-sort="string"><i class="sort-toggle fa fa-sort" aria-hidden="true"></i>Winner Name</th>
+    <th data-sort="string"><i class="sort-toggle fa fa-sort" aria-hidden="true"></i>Winner Address</th>
+    <th data-sort="int"><i class="sort-toggle fa fa-sort" aria-hidden="true"></i>Deadline</th>
+    <th data-sort="float"><i class="sort-toggle fa fa-sort" aria-hidden="true"></i>Reward + Fees</th>
+    <th data-sort="int"><i class="sort-toggle fa fa-sort" aria-hidden="true"></i>Base Target</th>
+  </thead>
+
+  <tbody>
+    {{range $k, $block := .}}
+    <tr id="{{$block.Height | html}}">
+      <td>{{$block.Height | html}}</td>
+      <td>{{$block.WinnerName | html}}</td>
+      <td>
+        <a href="//explore.burst.cryptoguru.org/address/{{ $block.WinnerID }}">
+          {{$block.WinnerAddress | html}}
+        </a>
+      </td>
+      <td>{{$block.Deadline | html}}</td>
+      <td>{{$block.Reward | html}}</td>
+      <td>{{$block.BaseTarget | html}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+
+<script>
+    $(document).ready(function() {
+      $("#won-block-table").stupidtable().bind('aftertablesort', function (event, data) {
+        $(this).find('th .sort-toggle').removeClass('fa-sort-desc fa-sort-asc').addClass('fa-sort');
+        data.$th.find('.sort-toggle').removeClass('fa-sort').addClass('fa-sort-' + data.direction);
+      });
+    })
+</script>
+
+{{ end }}

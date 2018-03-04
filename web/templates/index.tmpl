@@ -1,0 +1,543 @@
+{{ define "index" }}
+{{ template "header" }}
+<div class="row">
+  <div class="column col-md-4 col-sm-12 col-xs-12">
+    <div class="row">
+      <div class="column col-md-6 col-sm-6 col-xs-12">
+        <h4 class="sub-header">Deadline</h4>
+        <div class="text-center">
+          <div class="clock" id="deadline-clock">
+            <div>
+              <span class="hours"></span>
+              <div class="smalltext">Hours</div>
+            </div>
+            <div>
+              <span class="minutes"></span>
+              <div class="smalltext">Minutes</div>
+            </div>
+            <div>
+              <span class="seconds"></span>
+              <div class="smalltext">Seconds</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="column col-md-6 col-sm-6 col-xs-12">
+        <h4 class="sub-header">Elapsed</h4>
+        <div class="text-center">
+          <div class="clock" id="round-elapsed-clock">
+            <div>
+              <span class="hours"></span>
+              <div class="smalltext">Hours</div>
+            </div>
+            <div>
+              <span class="minutes"></span>
+              <div class="smalltext">Minutes</div>
+            </div>
+            <div>
+              <span class="seconds"></span>
+              <div class="smalltext">Seconds</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="column col-md-12 col-sm-12 col-xs-12">
+        <h4 class="sub-header">Current Block</h4>
+        <div class="row">
+          <div class="column col-md-6 col-sm-6 col-xs-6 small-padding">
+            <div class="panel panel-default">
+              <div class="panel-heading">Height</div>
+              <div class="panel-body text-center">
+                <div id="current-block-height">(none)</div>
+              </div>
+            </div>
+          </div>
+          <div class="column col-md-6 col-sm-6 col-xs-6 small-padding">
+            <div class="panel panel-default">
+              <div class="panel-heading">Base Target</div>
+              <div class="panel-body text-center">
+                <div id="current-block-base-target">(none)</div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="column col-md-6 col-sm-6 col-xs-6 small-padding">
+            <div class="panel panel-default">
+              <div class="panel-heading">Best Deadline</div>
+              <div class="panel-body text-center">
+                <div id="current-block-best-deadline" class="format-deadline">(none)</div>
+              </div>
+            </div>
+          </div>
+          <div class="column col-md-6 col-sm-6 col-xs-6 small-padding">
+            <div class="panel panel-default">
+              <div class="panel-heading">Best Miner</div>
+              <div class="panel-body text-center">
+                <div id="current-block-best-miner">(none)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="column col-md-8 col-sm-12 col-xs-12">
+    <h4 class="sub-header">Current Round Shares</h4>
+    <div id="share-chart" style="width: 100%; min-height: 300px;"></div>
+  </div>
+</div>
+
+<div class="row">
+  <ul class="nav nav-tabs" id="tabs">
+    <li class="active"><a data-toggle="tab" href="#subscribe-tab">Subscribe</a></li>
+    <li><a data-toggle="tab" href="#history-tab" data-url="wonblocks">History</a></li>
+    <li><a data-toggle="tab" href="#all-miners-tab" data-url="miners">All Miners</a></li>
+    <li><a data-toggle="tab" href="#config-tab">Config</a></li>
+    <li><a data-toggle="tab" href="#quick-info-tab">Quick Info</a></li>
+  </ul>
+  <div class="tab-content">
+    <div id="subscribe-tab" class="tab-pane active">
+      <br>
+      <div class="row" style="margin: auto;">
+        <div class="column col-md-2 col-sm-4 col-xs-12">
+          <form id="subscribe-form">
+            <div class="form-group" id="account-id-form-group">
+              <label for="inputAccount">Numeric ID or Burst Address</label>
+              <input class="form-control" id="account-id-input" placeholder="BURST-...">
+            </div>
+            <button class="btn btn-primary" id="subscribe-button">Subscribe</button>
+          </form>
+        </div>
+        <div class="row" style="margin: auto;">
+          <form>
+            <div class="column col-md-3 col-sm-4 col-xs-12">
+              <div class="form-group">
+                <label>Name</label>
+                <div id="miner-name"></div>
+              </div>
+              <div class="form-group">
+                <label>Address</label>
+                <div id="miner-address"></div>
+              </div>
+              <div class="form-group">
+                <label>Effective Capacity</label>
+                <div id="miner-capacity"></div>
+              </div>
+            </div>
+            <div class="column col-md-3 col-sm-4 col-xs-12">
+              <div class="form-group">
+                <label>Current Deadline</label>
+                <div id="miner-deadline"></div>
+              </div>
+              <div class="form-group">
+                <label>Valid Deadlines Last {{ .Cfg.NAVG }} Blocks</label>
+                <div id="miner-nconf"></div>
+              </div>
+              <div class="form-group">
+                <label>Last Active Blockheight</label>
+                <div id="miner-last-active-block-height"></div>
+              </div>
+            </div>
+            <div class="column col-md-3 col-sm-4 col-xs-12">
+              <div class="form-group">
+                <label>Historical Share</label>
+                <div id="miner-historical-share"></div>
+              </div>
+               <div class="form-group">
+                 <label>Pending</label>
+                 <div id="miner-pending"></div>
+               </div>
+               <div class="form-group">
+                 <label>Payout</label>
+                 <div id="payout-detail"></div>
+               </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div id="history-tab" class="tab-pane"></div>
+    <div id="all-miners-tab" class="tab-pane"></div>
+    <div id="config-tab" class="tab-pane">
+      <br>
+      <div class="column col-md-1 col-sm-12 col-xs-12"></div>
+      <div class="column col-md-5 col-sm-12 col-xs-12">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3><strong>Pool ({{ .Cfg.Version }}) Config</strong></h3>
+          </div>
+          <div class="panel-body">
+            <table class="table">
+              <tr>
+                <th>Pool Type: </th>
+                <td>
+                  <span id="pool-type"></span>
+                  <script>
+                    var poolTypeSpan = document.getElementById('pool-type');
+                    var winnerPercent = {{ .Cfg.WinnerShare }} * 100.0;
+                    var poolPercent = 100.0 - winnerPercent;
+                    poolTypeSpan.innerHTML =
+                      String(winnerPercent.toFixed(0)) + ' (winner) ' + '-' +
+                      String(poolPercent.toFixed(0))   + ' (pool)';
+                  </script>
+                </td>
+              </tr>
+              <tr>
+                <th>Minimum Payout: </th><td><span id="minimum-payout"></span></td>
+                <script>
+                  $('#minimum-payout').text({{ .Cfg.MinimumPayout }} / 100000000);
+                </script>
+              </tr>
+              <tr>
+                <th>Pool Fee: </th>
+                <td>
+                  <span id="pool-fee-share"></span>
+                </td>
+              </tr>
+              <tr>
+                <th>Deadline Limit: </th><td>{{ .Cfg.DeadlineLimit }}</td>
+              </tr>
+              <tr>
+                <th>Block Payout Delay: </th><td>{{ .Cfg.BlockHeightPayoutDelay }} Blocks</td>
+              </tr>
+              <tr>
+                <th>Tx Fee: </th><td><span id="tx-fee"></span></td>
+                <script>
+                  $('#tx-fee').text({{ .Cfg.TxFee }} / 100000000);
+                </script>
+              </tr>
+              <tr>
+                <th>nAvg</th>
+                <td>{{ .Cfg.NAVG }} </td>
+              </tr>
+              <tr>
+                <th>nMin</th>
+                <td>{{ .Cfg.NMin }} </td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="column col-md-1 col-sm-12 col-xs-12"></div>
+      <div class="column col-md-4 col-sm-12 col-xs-12">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3><strong>How to mine?</strong></h3>
+          </div>
+          <div class="panel-body">
+            <strong>Generate plot from own Acount</strong><br>
+            <p>
+              You need a plot that was generated for your own account (just like on solo mining)
+              please read the <a target="_blank" href="https://bitcointalk.org/index.php?topic=731923.0">forum</a> how to generate plot.
+            </p>
+            <strong>Set pool as reward recipient</strong><br>
+            <ul class="list-group">
+              <li>Go to the <a target="_blank" href="https://wallet.burst.cryptoguru.org:8125/rewardassignment.html">reward assignment page</a></li>
+              <li>Put your account secret passphrase there (the one you use to login into your wallet)</li>
+              <li>Set reward recipient to <strong>{{ .Cfg.PoolPublicID }}</strong></li>
+              <li>Click submit</li>
+              <li>Wait <strong>4</strong> blocks</li>
+            </ul>
+            <strong>Download and run miner</strong><br>
+            <ul class="list-group">
+              <li>Download miner <a target="_blank" href="https://github.com/Creepsky/creepMiner/releases">creepMiner</a></li>
+              <li>Edit <strong>mining.conf</strong>: set <strong>poolUrl</strong> and <strong>miningInfoUrl</strong> to <strong>{{ .Cfg.PoolAddress }}:{{ .Cfg.PoolPort }}</strong></li>
+              <li>Run miner</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="column col-md-1 col-sm-12 col-xs-12"></div>
+    </div>
+    <div id="quick-info-tab" class="tab-pane">
+      <br>
+      <div class="column col-md-6 col-sm-12 col-xs-12">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <strong>Quick Info on Effective Capacity and Historical Share</strong>
+          </div>
+          <div class="panel-body">
+            The pool will use the best confirmed deadlines of each miner from the last <b>{{ .Cfg.NAVG }}</b> blocks to estimate the <b>Effective Capacity</b> of the miners (<b>minerPlotSize</b>) as well as the total pool size (<b>poolPlotSize</b>) to determine the <b>historicalShare</b> of the miners:
+            <div class="alert alert-info text-center">
+              historicalShare = minerPlotSize / poolPlotSize
+            </div>
+            The <b>Effective Capacity</b> determines the miners payouts from historical shares, so miners should work on optimizing their effective capacity. Under good conditions (fast scan time and good confirmation time from the pool) the effective capacity should somehow reproduce your real plot size but some deviation of 10-20% can be normal. If your effective capacity deviates significantly from your actual plot size, the first thing you can do is to optimize your targetDL. A good value to start with can be
+            <div class="alert alert-info text-center">
+              targetDL = 720 * netDifficulty / yourPlotSize
+            </div>
+            You can use the calculator no the right to determine this targetDL for you. After adjusting your targetDL <b>it will take {{ .Cfg.NAVG }} blocks for the effective capacity to converge</b>. So be patient. If you are interested in more information, you may want to visit the <a href="/info" target="_blank">info page</a>.
+          </div>
+        </div>
+      </div>
+      <div class="column col-md-6 col-sm-12 col-xs-12">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <strong>Calculator</strong>
+          </div>
+          <div class="panel-body">
+            <form>
+              <div class="form-group">
+                <label>Network Difficulty (TB)</label>
+                <div>{{ .NetDiff }}</div>
+                <br>
+                <label>Plotsize (TB)</label>
+                <input type="float64" class="form-control" id="plot-size" placeholder="0.00">
+              </div>
+              <button id="target-deadline-button" class="btn btn-primary">Calculate</button>
+            </form>
+            <div class="form-group">
+              <label>Target Deadline (s)</label>
+              <div id ="target-deadline"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script >
+  google.charts.load('current', { 'packages':['corechart'] });
+  google.charts.setOnLoadCallback(function() {
+    var currentBlock = null;
+
+    var chartData  = [["Miner", "Share"]];
+    function drawShareChart(container, items, visibility) {
+      var shareChart = new google.visualization.PieChart(container);
+      shareChart.draw(
+        google.visualization.arrayToDataTable(items),
+        {
+          'chartArea':                { 'width': '100%', 'height': '80%' },
+          'sliceVisibilityThreshold': visibility
+        }
+      );
+    }
+
+    $('a[data-toggle=tab]').click(function(e){
+      e.preventDefault();
+      var url = $(this).attr("data-url");
+
+      if (typeof url !== "undefined") {
+        var pane = $(this), href = this.hash;
+
+        // ajax load from data-url
+        $(href).load(url,function(result){
+          pane.tab('show');
+        });
+      } else {
+        $(this).tab('show');
+      }
+    });
+
+    function clock(id, seconds) {
+      var c = $('#' + id);
+      if ( seconds == 0 ) {
+        c.find('.hours, .minutes, .seconds').text(0);
+      }
+      else {
+        var hours = Math.floor(seconds / 3600);
+        c.find('.hours').text(hours.toString().length == 1 ? '0' + hours : hours);
+        c.find('.minutes').text(('0' + Math.floor((seconds / 60) % 60)).slice(-2));
+        c.find('.seconds').text(('0' + Math.floor(seconds % 60 )).slice(-2));
+      }
+    }
+
+    var clockInterval;
+    var noDeadline      = Math.pow(2, 64);
+    var currentDeadline = null;
+    function initializeClocks() {
+      var tickTack = function () {
+        var blockStartTime = Math.round((new Date(currentBlock.created)).getTime() / 1000);
+        clock(
+          'deadline-clock',
+          currentDeadline != null
+          ? currentDeadline + blockStartTime - Math.round((new Date()).getTime() / 1000)
+          : 0
+        );
+        clock(
+          'round-elapsed-clock',
+          Math.round((new Date()).getTime() / 1000) - blockStartTime
+        );
+      }
+      clearInterval(clockInterval);
+      tickTack();
+      clockInterval = setInterval(tickTack, 1000);
+    }
+
+    function updateBlock(block) {
+      currentBlock = block;
+      $('#current-block-height').text(block.height);
+      $('#current-block-base-target').text(block.baseTarget);
+      $('#current-block-best-deadline').text("(none)");
+      $('#current-block-best-miner').text("(none)");
+
+      if (block.deadline === undefined) {
+        currentDeadline = null;
+      } else {
+        currentDeadline = block.deadline;
+
+        $('#current-block-best-miner').html(
+          '<a href="//explore.burst.cryptoguru.org/address/' + block.minerID + '">' +
+          block.miner +
+          '</a>'
+        );
+        $('#current-block-best-deadline').text(block.deadline);
+      }
+
+      initializeClocks();
+    }
+
+    function updateMinerInfo(minerInfo) {
+      $('#miner-name').text(minerInfo.name);
+      $('#miner-address').text(minerInfo.address);
+      if (minerInfo.pending === undefined) {
+        $('#miner-pending').text('0 Burst');
+      } else {
+        $('#miner-pending').text(minerInfo.pending / 100000000 + ' Burst');
+      }
+      if (minerInfo.effectiveCapacity === undefined) {
+        $('#miner-capacity').text('0.0000 TB');
+      } else {
+        $('#miner-capacity').text((minerInfo.effectiveCapacity).toFixed(4) + ' TB');
+      }
+      if (minerInfo.deadline === undefined) {
+        $('#miner-deadline').text('(none)');
+      } else if (minerInfo.lastActiveBlockHeight !== undefined) {
+        if (minerInfo.lastActiveBlockHeight == currentBlock.height) {
+          $('#miner-deadline').text(minerInfo.deadline);
+        } else {
+          $('#miner-deadline').text('(none)');
+        }
+      }
+      if (minerInfo.lastActiveBlockHeight !== undefined) {
+        $('#miner-last-active-block-height').text(minerInfo.lastActiveBlockHeight);
+      } else {
+        $('#miner-last-active-block-height').text('');
+      }
+      if (minerInfo.historicalShare === undefined) {
+        $('#miner-historical-share').text('0.000%');
+      } else {
+        $('#miner-historical-share').text((minerInfo.historicalShare * 100.0).toFixed(3) + '%');
+      }
+      if (minerInfo.nConf === undefined) {
+        $('#miner-nconf').text(0);
+      } else {
+        $('#miner-nconf').text(minerInfo.nConf);
+      }
+      if (minerInfo.payoutDetail !== undefined) {
+        if (minerInfo.payoutDetail.indexOf('|') !== -1) {
+          var splits = minerInfo.payoutDetail.split('|');
+          $('#payout-detail').text(splits[0] + ' (' + splits[1] + ')');
+        } else {
+          $('#payout-detail').text(minerInfo.payoutDetail / 100000000.0 + ' Burst');
+        }
+      } else {
+        $('#payout-detail').text('');
+      }
+    }
+
+    function updateShares(shares) {
+      var chartData  = [["Miner", "Share"]];
+
+      shares.forEach(function(e) {
+        chartData.push([e.name, e.val]);
+      });
+
+      var shareChart = new google.visualization.PieChart($('#share-chart')[0]);
+      shareChart.draw(
+        google.visualization.arrayToDataTable(chartData),
+        {
+          'chartArea': { 'width': '100%', 'height': '80%' },
+        }
+      );
+    }
+
+    var websocket;
+
+    function subscribe(e) {
+      e.preventDefault();
+      accountID = document.getElementById('account-id-input').value;
+      websocket.send(accountID);
+      setCookie('accountID', accountID, 7);
+      $('#subscribe-button').attr("disabled", "disabled");
+      setTimeout(function() {
+        $('#subscribe-button').removeAttr('disabled');
+      } , 5000);
+    }
+
+    function calculateTargetDeadline(e) {
+      e.preventDefault();
+      plotSize = document.getElementById('plot-size').value;
+      targetDeadline = Math.round(720.0 * {{ .NetDiff }} / plotSize);
+      $('#target-deadline').text(targetDeadline);
+    }
+
+    function getCookie(name) {
+      var value = "; " + document.cookie;
+      var parts = value.split("; " + name + "=");
+      if (parts.length == 2) return parts.pop().split(";").shift();
+    }
+
+    function setCookie(name, value, exdays) {
+      var exdate = new Date();
+      exdate.setDate(exdate.getDate() + exdays);
+      var cValue = escape(value) + ((exdays == null) ? "" : "; expires=" + exdate.toUTCString());
+      document.cookie = name + "=" + cValue;
+    }
+
+    document.getElementById ("subscribe-button").addEventListener("click", subscribe, false);
+    document.getElementById ("target-deadline-button").addEventListener("click", calculateTargetDeadline, false);
+
+    $(document).ready(function() {
+      var winnerSharePercent = ({{ .Cfg.WinnerShare }} * 100) + '%';
+      var historicSharePercent = ((1.0 - {{ .Cfg.WinnerShare }}) * 100) + '%';
+      var poolFeeSharePercent = ({{ .Cfg.PoolFeeShare }} * 100) + '%';
+      $('#winner-share').text(winnerSharePercent);
+      $('#historic-share').text(historicSharePercent);
+      $('#pool-fee-share').text(poolFeeSharePercent);
+
+      var accountID = getCookie('accountID');
+      if (accountID !== undefined) {
+        $('#account-id-input').val(accountID);
+      }
+
+      if ( window['WebSocket'] ) {
+        websocket = new WebSocket( ( document.location.protocol == 'https:' ? 'wss' : 'ws' ) + '://' + document.location.host + '/ws');
+        websocket.onmessage = function(evt) {
+          var data = JSON.parse(evt.data);
+          if (Array.isArray(data)) {
+            updateShares(data);
+          } else if (data.height !== undefined) {
+            updateBlock(data);
+          } else if (data.address !== undefined) {
+            updateMinerInfo(data);
+          } else if (data.subscriptionFailed !== undefined) {
+            $('#account-id-form-group').addClass('has-error');
+            $('#account-id-form-group').removeClass('has-success');
+            $('#subscription-error').remove();
+            $('#account-id-input').after('<div class="help-block with-errors" id="subscription-error">'
+              + data.subscriptionFailed +
+              '</div>');
+          } else if (data.subscriptionSuccess !== undefined) {
+            $('#account-id-form-group').addClass('has-success');
+            $('#account-id-form-group').removeClass('has-error');
+            $('#subscription-error').remove();
+          }
+        }
+      }
+      else {
+        $('.page-content').html(
+          '<div class="unsupported alert alert-danger" role="alert""><h1>'
+          + '<strong>Sorry!</strong><br />Looks like you\'re Browser does not support Websockets. Please install a newer one.<br />'
+          + '<p>How about <a href="http://www.google.com/chrome">Google Chrome</a>?</p>'
+          + '</h1></div>'
+        );
+      }
+    });
+  });
+</script>
+
+{{ template "footer" }}
+{{ end }}

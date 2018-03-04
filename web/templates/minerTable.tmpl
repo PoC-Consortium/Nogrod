@@ -1,0 +1,41 @@
+{{ define "minerTable" }}
+
+<table class="table" id="miner-table">
+  <thead>
+    <th data-sort="string"><i class="sort-toggle fa fa-sort" aria-hidden="true"></i>Name</th>
+    <th data-sort="string"><i class="sort-toggle fa fa-sort" aria-hidden="true"></i>Address</th>
+    <th data-sort="float"><i class="sort-toggle fa fa-sort" aria-hidden="true"></i>Pending (Burst)</th>
+    <th data-sort="float"><i class="sort-toggle fa fa-sort" aria-hidden="true"></i>Historical Share</th>
+    <th data-sort="float" data-sort-onload="yes" data-sort-default="desc"><i class="sort-toggle fa fa-sort" aria-hidden="true"></i>Effective Capacity</th>
+    <th data-sort="int"><i class="sort-toggle fa fa-sort" aria-hidden="true"></i>Confirmed Deadlines (Last nAvg Rounds)</th>
+  </thead>
+
+  <tbody>
+    {{range $k, $minerInfo := .}}
+    <tr id="{{$minerInfo.ID | html}}">
+      <td>{{$minerInfo.Name | html}}</td>
+      <td>
+        <a href="//explore.burst.cryptoguru.org/address/{{ $minerInfo.ID }}">
+          {{$minerInfo.Address | html}}
+        </a>
+      </td>
+      <td>{{$minerInfo.Pending | printf "%.8f" | html}}</td>
+      <td>{{$minerInfo.HistoricalShare | printf "%.3f" | html}} %</td>
+      <td>{{$minerInfo.Capacity |printf "%.4f"| html}} TB</td>
+      <td>{{$minerInfo.NConf | html}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+
+<script>
+    $(document).ready(function() {
+      $("#miner-table").stupidtable().bind('aftertablesort', function (event, data) {
+        $(this).find('th .sort-toggle').removeClass('fa-sort-desc fa-sort-asc').addClass('fa-sort');
+        data.$th.find('.sort-toggle').removeClass('fa-sort').addClass('fa-sort-' + data.direction);
+      });
+    })
+
+</script>
+
+{{ end }}

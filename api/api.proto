@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package api;
+
+service Api {
+    rpc GetMinerInfo(MinerRequest) returns (MinerInfo) {}
+    rpc GetPoolStatsInfo(Void) returns (PoolStatsInfo) {}
+    rpc GetBlockInfo(Void) returns (BlockInfo) {}
+}
+
+message Void {}
+
+message MinerRequest {
+    uint64 ID = 1;
+}
+
+message MinerInfo {
+    string address = 1;
+    string name = 2;
+    int64 pending = 3;
+    double historicalShare = 4;
+    double effectiveCapacity = 5;
+    uint64 deadline = 6;
+    uint64 lastActiveBlockHeight = 7;
+    int32  nConf = 8;
+    string payoutDetail = 9;
+}
+
+message PoolStatsInfo {
+    int32 minerCount = 1;
+    double effectivePoolCapacity = 2;
+    double netDiff = 3;
+}
+
+message BlockInfo {
+    uint64 height = 1;
+    uint64 baseTarget = 2;
+    uint32 scoop = 3;
+    string generationSignature = 4;
+    uint64 minerID = 5;
+    string miner = 6;
+    uint64 deadline = 7;
+    string created = 8;
+}

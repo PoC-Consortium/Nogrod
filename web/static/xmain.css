@@ -1,0 +1,74 @@
+body {
+  font-family: "Lucida Grande", "Bitstream Vera Sans", "Verdana";
+  font-size:   13px;
+}
+
+h1.page-header {
+    line-height: 26px;
+    font-size: 13px;
+    font-weight: bolder;
+    padding: 0 5px;
+    margin: 0;
+}
+
+.clock{
+	font-family: sans-serif;
+	display: inline-block;
+	font-weight: 100;
+	text-align: center;
+	font-size: 18px;
+}
+
+.clock > div{
+	border-radius: 3px;
+	display: inline-block;
+}
+
+.clock div > span{
+	padding: 10px;
+	border-radius: 3px;
+	display: inline-block;
+}
+
+.smalltext{
+	padding-top: 3px;
+	font-size: 12px;
+}
+
+@media only screen and (min-width: 768px) {
+    .table-responsive {
+        overflow-x: hidden;
+    }
+}
+
+.small-padding {
+   padding: 5 !important;
+   margin: 0 !important;
+}
+
+#page-content-wrapper {
+  width: 100%;
+  padding-top: 50px;
+}
+
+table.dataTable {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.alert {
+    padding: 5px !important;
+}
+
+td {
+    white-space: nowrap;
+}
+
+th {
+    white-space: nowrap;
+    cursor:      pointer;
+}
+
+.list-group {
+    padding-left: 10px;
+}

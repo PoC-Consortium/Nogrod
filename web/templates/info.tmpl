@@ -1,0 +1,176 @@
+{{ define "info" }}
+{{ template "header" }}
+
+<br>
+
+<div class="column col-md-6 col-sm-12 col-xs-12">
+
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <strong>Historical Share Determination</strong>
+    </div>
+    <div class="panel-body">
+      The pool will use the best confirmed deadlines of each miner from the last <b>{{ .Cfg.NAVG }}</b> blocks to estimate the plot size of the miners (<b>minerPlotSize</b>) as well as the total pool size (<b>poolPlotSize</b>) to determine the <b>historicalShare</b> of the miners:
+      <div class="alert alert-info text-center">
+        historicalShare = minerPlotSize / poolPlotSize
+      </div>
+      Blocks with block time of less than <strong>TMin</strong> are not used for the estimation to improve accuracy. The formulas used to determine the estimated plot sizes are given below. Some important properties of this estimation are:
+      <div class="alert alert-warning text">
+        <ul class="list-group">
+          <li>The pool will only estimate the miners plot size if it confirmed DLs from the miner in more than <b>{{ .Cfg.NMin }}</b> blocks. Until then, the miners estimated plot size will be set to 0.</li>
+          <br>
+          <li>For newly joined miners it will take a run-up period of <b>{{ .Cfg.NAVG }}</b> blocks until the estimate will reflect the miners actual plot size</li>
+          <br>
+          <li>Under good conditions, the estimate will fluctuate around the miner's actual plot size after the run-up period. (if not, see below)</li>
+          <br>
+          <li>The estimate only uses the miner's best DL of each round. To decrease the pool workload, miners should decrease their targetDL to a reasonable value. (see below)</li>
+          <br>
+          <li>The estimate cannot be tricked into systematically overestimating the miners plot size by withholding bad DLs. In fact, it will give reasonable estimations even if the miners targetDL is set to a value at which some rounds go without any submits.</li>
+        </ul>
+      </div>
+      The estimated plot sizes can be viewed in the "Miners" overview tab.
+    </div>
+  </div>
+
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <strong>Choosing a Reasonable targetDL</strong>
+    </div>
+    <div class="panel-body">
+      If you haven't bothered optimizing your targetDL yet, the following formula (with <b>yourPlotSize</b> in TeraBytes) might give you a good value to start with:
+      <div class="alert alert-info text-center">
+        targetDL = 720 * netDifficulty / yourPlotSize
+      </div>
+      For <strong>netDifficulty</strong> you can use the latest mean network difficulty (<strong>~{{ .NetDiff}}</strong>). With this targetDL you should submit a DL in ~95% of rounds on average.
+    </div>
+  </div>
+
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <strong>How the Estimated Plot Size Is Determined</strong>
+    </div>
+    <div class="panel-body">
+      Say the miner got <b>nConf</b> best confirmed deadlines in the last <b>nAvg</b> rounds (only the blocks with block time less than <strong>TMin</strong> are used for the estimate). To turn every best DL into a value that has a clear relation with the miners plot size, the DLs are divided by the
+      Difficulty of the round they were confirmed in.
+      <div class="alert alert-info text-center">
+        target_i = Deadline_i / Difficulty_i
+      </div>
+      Those characteristic values <b>target_i</b> are summed up to get the <b>totalTarget</b>. With this the estimated effective plot size (EEPS) is calculated:
+      <div class="alert alert-info text-center">
+        EEPS = alpha * 240 * (nConf-1) / totalTarget
+      </div>
+      The constant <b>240</b> is the mean block time (in seconds) that the burst network aims to achieve. The parameter <b>alpha</b> is a bias that always assumes that the miner withheld the (nAvg-nConf) of his worst <b>target</b> values if the miner did not submit DLs in every of the last <b>nAvg</b> rounds.
+      This ensures that miners cannot trick the pool into systematically overestimating the miners plot size. <b>alpha</b> is calculated as:
+      <div class="alert alert-info text-center">
+        alpha = 1 - (nAvg-nConf) / nConf * Ln[ nAvg / (nAvg-nConf) ]
+      </div>
+    </div>
+  </div>
+
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <strong>Reward Distribution</strong>
+    </div>
+    <div class="panel-body">
+      If a block was won the <b>poolFee</b> will be subtracted from the blockReward:
+
+      <div class="alert alert-info text-center">
+        poolShareInBurst = blockReward (1 - {{ .Cfg.PoolFeeShare }})
+      </div>
+      The winner will receive:
+
+      <div class="alert alert-info text-center">
+        poolShareInBurst * {{ .Cfg.WinnerShare }}
+      </div>
+      From the remaining bursts all miners (including the winner) will receive burst proportional to their
+      <b>historicalShare</b> on the block:
+      <div class="alert alert-info text-center">
+        poolShareInBurst * (1-{{ .Cfg.WinnerShare }}) * historicalShare
+      </div>
+      <div class="alert alert-danger">
+        The pending amount for each miner includes the tx fee!
+      </div>
+      <div class="alert alert-danger">
+        Miners that were not active for 5000 blocks will be removed from the database together with their pending burst.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="column col-md-6 col-sm-12 col-xs-12">
+
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <strong>My Estimated Plot Size Is Lower Than My Actual Plot Size. Why?</strong>
+    </div>
+    <div class="panel-body">
+      Under good conditions, the estimated plot size should on average (at least almost) reproduce the miners actual plot size. But fluctuations in the miners luck can still cause the estimate to be lower than the
+      actual plot size for days. If you think the pool systematically (not just randomly) underestimates your plot size, one of the following can be the case:
+      <div class="alert alert-warning text">
+        <ul class="list-group">
+          <li>Your plot files overlap, which lowers your effective plot size.</li>
+          <li>Your plot read speed is slow, so you can't finish reading your plots to submit your best DL in many of the shorter rounds. In this case you might want to optimize your plot files or optimize your mining hardware for better read speeds.</li>
+          <li>The Pool's confirmation time is very long, so some of your best DLs are not confirmed before the round ends. Miners should optimize their targetDL (see above) to reduce the pools work load, so everyone can get their best DLs confirmed as fast as possible. If the pool is very occupied miners can also get better estimates with lower targetDLs.</li>
+          <li><b>If the fault is on the pools side (bad confirmation times), the estimated plot sizes will be lowered for all miners equally, so the historical share will still be fair. You should get your fair share at all times as long as you optimize your mining rig.</b></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <strong>Dynamic Payout</strong>
+    </div>
+    <div class="panel-body">
+      Miners can send unencrypted messages to the pool account to change their payment thresholds/intervals.
+      The fees for a message - if there are any - are subtracted from your pending shares when the message arrives the pool.
+      If your pending do not saturate those fees the message will be ignored by the pool.
+
+      <p>
+        You can use one of the following messages:
+        <div class="alert alert-warning text"><b>now</b></div>
+        <ul class="list-group">
+          <li>forces a payout if you have a positive balance</li>
+          <li>after that pool defaults are set</li>
+          <li>Fee: {{ .Cfg.SetNowFee }} Planck</li>
+        </ul>
+        <div class="alert alert-warning text"><b>daily</b></div>
+        <ul class="list-group">
+          <li>forces a daily payout if you have a positive balance at the time, when the payment is made</li>
+          <li>Fee: {{ .Cfg.SetDailyFee }} Planck</li>
+        </ul>
+        <div class="alert alert-warning text"><b>weekly</b></div>
+        <ul class="list-group">
+          <li>forces a weekly payout if you have a positive balance at the time, when the payment is made</li>
+          <li>Fee: {{ .Cfg.SetWeeklyFee }} Planck</li>
+        </ul>
+        <div class="alert alert-warning text"><b>12345</b> or similar (unsigned integer) in Planck (not Burst!)</div>
+        <ul class="list-group">
+          <li>you can set any integer value you like to eg. 12345</li>
+          <li>payment is done after you pass this threshold including txFee with your pendings</li>
+          <li>any existing recurring payment settings will be removed</li>
+          <li>Fee: {{ .Cfg.SetMinPayoutFee }} Planck</li>
+        </ul>
+        <div class="alert alert-warning text"><b>0</b></div>
+        <ul class="list-group">
+          <li>reset to pool's defaults</li>
+          <li>any existing recurring payment settings will be removed</li>
+          <li>no fees</li>
+        </ul>
+      </p>
+      <div class="alert alert-info">
+        A Planck equals 0.00000001 Burst. One Burst is 100000000 Planck.
+      </div>
+      <div class="alert alert-danger">
+        The fees will be subtracted from your pending directly as soon as the message arrives the pool.
+        Make sure to have enough Burst in your Pendings - otherwhise the message will be ignored by the pool.
+        Invalid messages will be ignored.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{{ template "footer" }}
+{{ end }}
