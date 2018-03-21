@@ -624,7 +624,9 @@ func (modelx *Modelx) RewardBlocks() {
 	// since the block that has not been checked
 	if len(hcns) > 0 {
 		earliestCreated := hcns[0].Created
-		msgOf, err := modelx.wallet.GetIncomingMsgsSince(earliestCreated.Add(-time.Second * 30))
+		earliestHeight := hcns[0].Height
+		msgOf, err := modelx.wallet.GetIncomingMsgsSince(
+			earliestCreated.Add(-time.Second*30), earliestHeight)
 		if err != nil {
 			Logger.Error("failed to get messages", zap.Error(err))
 		} else {
@@ -967,15 +969,12 @@ func (modelx *Modelx) SetMinPayout(msgOf map[uint64]string) {
                  WHERE id = ?`
 	transferFeeSQL := `UPDATE account SET pending = pending + ? WHERE id = ?`
 	for accountID, msg := range msgOf {
-		tx, err := modelx.db.Begin()
-		if err != nil {
-			Logger.Error("failed to start setMinPayout transaction", zap.Error(err))
-			continue
-		}
 		var cost int64
 		var nextPayoutDate *time.Time
 		var payoutInterval *string
 		var minPayoutValue *int64
+
+		var oldMsg bool
 		switch msg {
 		case "weekly":
 			tmpStr := "weekly"
@@ -983,18 +982,39 @@ func (modelx *Modelx) SetMinPayout(msgOf map[uint64]string) {
 			tmpTime := time.Now().AddDate(0, 0, 7)
 			nextPayoutDate = &tmpTime
 			cost = Cfg.SetWeeklyFee
+
+			modelx.db.QueryRow(`SELECT 1 FROM account WHERE id = ? AND payout_interval = "weekly"`,
+				accountID).Scan(&oldMsg)
+			if oldMsg {
+				Logger.Info("processed msg second time", zap.Uint64("account id", accountID))
+				continue
+			}
 		case "daily":
 			tmpStr := "daily"
 			payoutInterval = &tmpStr
 			tmpTime := time.Now().AddDate(0, 0, 1)
 			nextPayoutDate = &tmpTime
 			cost = Cfg.SetDailyFee
+
+			modelx.db.QueryRow(`SELECT 1 FROM account WHERE id = ? AND payout_interval = "daily"`,
+				accountID).Scan(&oldMsg)
+			if oldMsg {
+				Logger.Info("processed msg second time", zap.Uint64("account id", accountID))
+				continue
+			}
 		case "now":
 			tmpStr := "now"
 			payoutInterval = &tmpStr
 			tmpTime := time.Now()
 			nextPayoutDate = &tmpTime
 			cost = Cfg.SetNowFee
+
+			modelx.db.QueryRow(`SELECT 1 FROM account WHERE id = ? AND payout_interval = "now"`,
+				accountID).Scan(&oldMsg)
+			if oldMsg {
+				Logger.Info("processed msg second time", zap.Uint64("account id", accountID))
+				continue
+			}
 		default:
 			minPayout, parseErr := strconv.ParseInt(msg, 10, 64)
 			if parseErr != nil {
@@ -1007,9 +1027,22 @@ func (modelx *Modelx) SetMinPayout(msgOf map[uint64]string) {
 			}
 			if minPayout != 0 {
 				minPayoutValue = &minPayout
+				modelx.db.QueryRow(`SELECT 1 FROM account WHERE id = ? AND min_payout_value = ?`,
+					accountID, minPayout).Scan(&oldMsg)
+				if oldMsg {
+					Logger.Info("processed msg second time", zap.Uint64("account id", accountID))
+					continue
+				}
+
 			} else {
 				cost = Cfg.SetMinPayoutFee
 			}
+		}
+
+		tx, err := modelx.db.Begin()
+		if err != nil {
+			Logger.Error("failed to start setMinPayout transaction", zap.Error(err))
+			continue
 		}
 
 		var enoughFunds bool
@@ -1057,6 +1090,7 @@ func (modelx *Modelx) SetMinPayout(msgOf map[uint64]string) {
 					miner.PayoutDetail = "daily|" + nextPayoutDate.String()
 				}
 			}
+			Logger.Info("set payout", zap.Uint64("account id", accountID), zap.Int64("cost", cost))
 			miner.Pending -= cost
 			miner.Unlock()
 		}

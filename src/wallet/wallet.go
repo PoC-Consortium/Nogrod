@@ -31,7 +31,7 @@ type Wallet interface {
 	WonBlock(uint64, uint64) (bool, *BlockInfo, error)
 	IsPoolRewardRecipient(accountID uint64) (bool, error)
 	GetGenerationTime(height uint64) (int32, error)
-	GetIncomingMsgsSince(date time.Time) (map[uint64]string, error)
+	GetIncomingMsgsSince(date time.Time, height uint64) (map[uint64]string, error)
 }
 
 type BrsWallet struct {
@@ -98,6 +98,7 @@ type TransactionsInfo struct {
 type TransactionInfo struct {
 	Sender     uint64         `json:"sender,string"`
 	Attachment AttachmentInfo `json:"attachment"`
+	Height     uint64         `json:"height"`
 }
 
 type AttachmentInfo struct {
@@ -437,14 +438,15 @@ func (wallet *BrsWallet) GetGenerationTime(height uint64) (int32, error) {
 	return b2.TimeStamp - b1.TimeStamp, nil
 }
 
-func (wallet *BrsWallet) GetIncomingMsgsSince(date time.Time) (map[uint64]string, error) {
+func (wallet *BrsWallet) GetIncomingMsgsSince(date time.Time, height uint64) (map[uint64]string, error) {
 	msgOf := make(map[uint64]string)
+	ts := util.DateToTimeStamp(date)
 	requestParams := map[string]string{
 		"requestType": "getAccountTransactions",
 		"account":     strconv.FormatUint(Cfg.PoolPublicID, 10),
 		"type":        "1",
 		"subtype":     "0",
-		"timestamp":   strconv.FormatInt(util.DateToTimeStamp(date), 10)}
+		"timestamp":   strconv.FormatInt(ts, 10)}
 
 	jsonBytes, err := wallet.request("POST", requestParams)
 	if err != nil {
@@ -466,6 +468,10 @@ func (wallet *BrsWallet) GetIncomingMsgsSince(date time.Time) (map[uint64]string
 	}
 
 	for _, transactionInfo := range res.Transactions {
+		// already in blockchain?
+		// if transactionInfo.Height < height {
+		// 	continue
+		// }
 		if transactionInfo.Sender != Cfg.PoolPublicID {
 			msgOf[transactionInfo.Sender] = transactionInfo.Attachment.Msg
 		}
