@@ -21,7 +21,7 @@ PoCC Goburstpool - Terms and conditions
 - All PoCC-operated pools (PoCC 0-100, PoCC 50-50, PoCC 100-0)
 - <http://burst.btfg.space/> BTFG Pool
 - <http://pool.burstcoin.ro/> Burst Romania Pool
-- <http://pool.burstcoin.sk/> Slovak Burst Pool
+- <http://bibenwei.com> bibenwei
 - <http://burstneon.com/> Burst Neon Pool
 - <http://50-50.burstforum.net> Burstforum 50-50
 - <http://0-100.burstforum.net> Burstforum 0-100
@@ -31,7 +31,7 @@ PoCC Goburstpool - Terms and conditions
 - <http://pool.burst-team.us> Burst-Team
 - <http://pool.burstpay.net> Burstpay
 - <http://pool.burstcoin.ml> Burstcoin.ml
-- <http://bibenwei.com> bibenwei
+
 
 
 3. **License Grant:** Licensor hereby grants Licensee a Personal, Non-assignable & non-transferable, Perpetual, Commercial, Royalty free, Including the rights to create but not distribute derivative works, Non-exclusive license, all with accordance with the terms set forth and other legal restrictions set forth in 3rd party software used while running Software.
