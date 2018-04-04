@@ -1,3 +1,5 @@
 /goburstpool
 /vendor
 /cover.out
+*.o
+*.a

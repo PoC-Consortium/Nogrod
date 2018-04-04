@@ -7,13 +7,22 @@ GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 BINARY_NAME=goburstpool
 
+CC=gcc
+CFLAGS=$(OSFLAGS) -Wall -m64 -O3 -mtune=native
+
 start:
 	make build
 	./$(BINARY_NAME)
 api:
 	protoc --go_out=plugins=grpc:src/ api/api.proto
-build: deps
+build: deps libs
 	@GOPATH=$(GOPATH) $(GOBUILD) -o $(BINARY_NAME)
+libs:
+	cd src/libs; \
+	$(CC) $(CFLAGS) -c -o shabal64.o shabal64.s; \
+	$(CC) $(CFLAGS) -c -o mshabal_sse4.o mshabal_sse4.c; \
+	$(CC) $(CFLAGS) -mavx2 -c -o mshabal256_avx2.o mshabal256_avx2.c; \
+	$(CC) $(CFLAGS) -shared -o libutils.a utils.c shabal64.o mshabal_sse4.o mshabal256_avx2.o -lpthread -std=gnu99;
 deps:
 	@GOPATH=$(GOPATH) $(GOGET) github.com/gorilla/websocket
 	@GOPATH=$(GOPATH) $(GOGET) gopkg.in/yaml.v2
@@ -35,3 +44,12 @@ test:
 cover:
 	go test ./... -coverprofile=cover.out
 	go tool cover -html=cover.out
+deploy-50-50:
+	ssh root@50-50-pool.burst.cryptoguru.org 'su - burstpool -s /bin/bash -c "source ~/.profile  && cd app && git pull && make build"'
+	ssh root@50-50-pool.burst.cryptoguru.org 'systemctl restart burstpool'
+deploy-0-100:
+	ssh root@0-100-pool.burst.cryptoguru.org 'su - burstpool -s /bin/bash -c "source ~/.profile  && cd app && git pull && make build"'
+	ssh root@0-100-pool.burst.cryptoguru.org 'systemctl restart burstpool'
+deploy-100-0:
+	ssh root@100-0-pool.burst.cryptoguru.org 'su - burstpool -s /bin/bash -c "source ~/.profile  && cd app && git pull && make build"'
+	ssh root@100-0-pool.burst.cryptoguru.org 'systemctl restart burstpool'

@@ -2,8 +2,8 @@
 
 package util
 
-// #cgo CFLAGS: -std=gnu99 -mavx2 -Wall -O3 -mtune=native -D_FILE_OFFSET_BITS=64
-// #include "utils.h"
+// #cgo LDFLAGS: -L../libs -lutils
+// #include "../libs//utils.h"
 import "C"
 
 import (
