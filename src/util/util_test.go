@@ -3,6 +3,7 @@
 package util
 
 import (
+	"github.com/klauspost/cpuid"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -30,6 +31,11 @@ func TestCalculateScoop(t *testing.T) {
 }
 
 func TestCalculateDeadlinesSSE4(t *testing.T) {
+	if !cpuid.CPU.SSE4() {
+		t.Log("SSE4 not supported, skipping related tests")
+		return
+	}
+
 	genSig, _ := DecodeGeneratorSignature("2a0757c8af2aa43b29515c872385ede31d0742b1ea29b93a1a8c38a11b8a37a0")
 
 	d1, d2, d3, d4 := CalculateDeadlinesSSE4(30, 18325193796, genSig, false,
@@ -62,6 +68,11 @@ func TestCalculateDeadlinesSSE4(t *testing.T) {
 }
 
 func TestCalculateDeadlinesSSE4PoC2(t *testing.T) {
+	if !cpuid.CPU.SSE4() {
+		t.Log("SSE4 not supported, skipping relatedd tests")
+		return
+	}
+
 	genSig, _ := DecodeGeneratorSignature("305a98571a8b96f699449dd71eff051fc10a3475bce18c7dac81b3d9316a9780")
 
 	d1, d2, d3, d4 := CalculateDeadlinesSSE4(1269, 18325193796, genSig, true,
@@ -75,6 +86,11 @@ func TestCalculateDeadlinesSSE4PoC2(t *testing.T) {
 }
 
 func TestCalculateDeadlinesAVX2PoC2(t *testing.T) {
+	if !cpuid.CPU.AVX2() {
+		t.Log("AVX2 not supported, skipping related tests")
+		return
+	}
+
 	genSig, _ := DecodeGeneratorSignature("305a98571a8b96f699449dd71eff051fc10a3475bce18c7dac81b3d9316a9780")
 
 	d1, d2, d3, d4, d5, d6, d7, d8 := CalculateDeadlinesAVX2(1269, 18325193796, genSig, true,
@@ -94,6 +110,11 @@ func TestCalculateDeadlinesAVX2PoC2(t *testing.T) {
 }
 
 func TestCalculateDeadlinesAVX2(t *testing.T) {
+	if !cpuid.CPU.AVX2() {
+		t.Log("AVX2 not supported, skipping related tests")
+		return
+	}
+
 	genSig, _ := DecodeGeneratorSignature("2a0757c8af2aa43b29515c872385ede31d0742b1ea29b93a1a8c38a11b8a37a0")
 
 	d1, d2, d3, d4, d5, d6, d7, d8 := CalculateDeadlinesAVX2(30, 18325193796, genSig, false,
