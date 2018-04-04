@@ -44,12 +44,3 @@ test:
 cover:
 	go test ./... -coverprofile=cover.out
 	go tool cover -html=cover.out
-deploy-50-50:
-	ssh root@50-50-pool.burst.cryptoguru.org 'su - burstpool -s /bin/bash -c "source ~/.profile  && cd app && git pull && make build"'
-	ssh root@50-50-pool.burst.cryptoguru.org 'systemctl restart burstpool'
-deploy-0-100:
-	ssh root@0-100-pool.burst.cryptoguru.org 'su - burstpool -s /bin/bash -c "source ~/.profile  && cd app && git pull && make build"'
-	ssh root@0-100-pool.burst.cryptoguru.org 'systemctl restart burstpool'
-deploy-100-0:
-	ssh root@100-0-pool.burst.cryptoguru.org 'su - burstpool -s /bin/bash -c "source ~/.profile  && cd app && git pull && make build"'
-	ssh root@100-0-pool.burst.cryptoguru.org 'systemctl restart burstpool'
