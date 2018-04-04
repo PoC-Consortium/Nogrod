@@ -1034,7 +1034,6 @@ func (modelx *Modelx) SetMinPayout(msgOf map[uint64]string) {
 					continue
 				}
 
-			} else {
 				cost = Cfg.SetMinPayoutFee
 			}
 		}
