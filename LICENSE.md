@@ -32,6 +32,7 @@ PoCC Goburstpool - Terms and conditions
 - <http://pool.burstpay.net> Burstpay
 - <http://pool.burstcoin.ml> Burstcoin.ml
 - <http://pool.fairpool.net> Fairpool.net
+- <http://moverspool.ml> Moverspool
 
 
 3. **License Grant:** Licensor hereby grants Licensee a Personal, Non-assignable & non-transferable, Perpetual, Commercial, Royalty free, Including the rights to create but not distribute derivative works, Non-exclusive license, all with accordance with the terms set forth and other legal restrictions set forth in 3rd party software used while running Software.
