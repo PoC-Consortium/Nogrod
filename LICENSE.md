@@ -4,7 +4,7 @@ License for PoCC Goburstpool
 License Summary
 ---------------
 
-*   License does not expire.
+*   License does not expire
 *   Commercial use allowed
 *   Usage limited to specifically named entities
 *   Can modify source-code. Modifications (derivative works) must be made available to Licensor only
@@ -16,23 +16,24 @@ PoCC Goburstpool - Terms and conditions
 
 1. **Preamble:** This Agreement, signed on Mar 1, 2018 (hereinafter: Effective Date) governs the relationship between Burst Pool Operator, a Business Entity, (hereinafter: Licensee) and PoC Consortium, a partnership under the laws of whose principal place of business is Germany (hereinafter: Licensor). This Agreement sets the terms, rights, restrictions and obligations on using PoCC Goburstpool (hereinafter: The Software) created and owned by Licensor, as detailed herein
 
-2. **Licensees:**
+2. **Licensees:** (alphabetically)
 
 - All PoCC-operated pools (PoCC 0-100, PoCC 50-50, PoCC 100-0)
-- <http://burst.btfg.space/> BTFG Pool
-- <http://pool.burstcoin.ro/> Burst Romania Pool
-- <http://bibenwei.com> bibenwei
-- <http://burstneon.com/> Burst Neon Pool
-- <http://50-50.burstforum.net> Burstforum 50-50
 - <http://0-100.burstforum.net> Burstforum 0-100
 - <http://0-100.burst-team.us> Burst-Team 0-100
-- <http://pool.burstcoin.de> Burstcoin.de
-- <http://pool.plotsthicken.com> Plotsthicken
-- <http://pool.burst-team.us> Burst-Team
-- <http://pool.burstpay.net> Burstpay
-- <http://pool.burstcoin.ml> Burstcoin.ml
-- <http://pool.fairpool.net> Fairpool.net
+- <http://50-50.burstforum.net> Burstforum 50-50
+- <http://bibenwei.com> bibenwei
+- <http://burst.btfg.space/> BTFG Pool
+- <http://demo.creepminer.net> CreepMiner demo/experimental pool
 - <http://moverspool.ml> Moverspool
+- <http://pool.burst-team.us> Burst-Team
+- <http://pool.burstcoin.de> Burstcoin.de
+- <http://pool.burstcoin.ml> Burstcoin.ml
+- <http://pool.burstcoin.ro/> Burst Romania Pool
+- <http://pool.burstpay.net> Burstpay
+- <http://pool.creepminer.net> creepPool
+- <http://pool.fairpool.net> Fairpool.net
+- <http://pool.plotsthicken.com> Plotsthicken
 
 
 3. **License Grant:** Licensor hereby grants Licensee a Personal, Non-assignable & non-transferable, Perpetual, Commercial, Royalty free, Including the rights to create but not distribute derivative works, Non-exclusive license, all with accordance with the terms set forth and other legal restrictions set forth in 3rd party software used while running Software.
