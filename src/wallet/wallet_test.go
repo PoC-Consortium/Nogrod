@@ -15,21 +15,18 @@ var secretPhrase = "glad suffer red during single glow shut slam hill death lust
 
 type walletTestSuite struct {
 	suite.Suite
-	wallet *BrsWallet
+	wh *walletHandler
 }
 
 func (suite *walletTestSuite) SetupSuite() {
 	LoadConfig()
-	suite.wallet = NewBrsWallet(walletUrls, secretPhrase)
-	assert.Equal(suite.T(), secretPhrase, suite.wallet.secretPhrase, "secretPhrase isn't intialized correctly")
-}
-
-func (suite *walletTestSuite) TearDownSuite() {
-	suite.wallet.Stop()
+	suite.wh = NewWalletHandler(walletUrls, secretPhrase, time.Second*10).(*walletHandler)
+	assert.Equal(suite.T(), secretPhrase, suite.wh.secretPhrase, "secretPhrase isn't intialized correctly")
+	assert.Equal(suite.T(), 1, len(suite.wh.wallets), "wallet count not ok")
 }
 
 func (suite *walletTestSuite) TestGetMiningInfo() {
-	miningInfo, err := suite.wallet.GetMiningInfo()
+	miningInfo, err := suite.wh.GetMiningInfo()
 	if assert.Nil(suite.T(), err, "err isn't nil") {
 		assert.NotEmpty(suite.T(), miningInfo.GenerationSignature, "GenerationSignature is empty")
 		assert.NotEmpty(suite.T(), miningInfo.BaseTarget, "BaseTarget is empty")
@@ -38,16 +35,8 @@ func (suite *walletTestSuite) TestGetMiningInfo() {
 	}
 }
 
-func (suite *walletTestSuite) TestGetConstantsInfo() {
-	constantsInfo, err := suite.wallet.GetConstantsInfo()
-	if assert.Nil(suite.T(), err, "err isn't nil") {
-		assert.NotEmpty(suite.T(), constantsInfo.GenesisBlockID, "GenesisBlockID is empty")
-		assert.Empty(suite.T(), constantsInfo.ErrorDescription, "ErrorDescription isn't empty")
-	}
-}
-
 func (suite *walletTestSuite) TestGetBlockInfo() {
-	blockInfo, err := suite.wallet.GetBlockInfo(40000)
+	blockInfo, err := suite.wh.GetBlockInfo(40000)
 	if assert.Nil(suite.T(), err, "err isn't nil") {
 		assert.Equal(suite.T(), uint64(0x8f7dd7bcaa4f2037), blockInfo.GeneratorID, "GeneratorID incorrect")
 		assert.Equal(suite.T(), int64(0x217d), blockInfo.BlockReward, "BlockReward incorrect")
@@ -56,87 +45,53 @@ func (suite *walletTestSuite) TestGetBlockInfo() {
 		assert.Empty(suite.T(), blockInfo.ErrorDescription, "ErrorDescription isn't empty")
 	}
 
-	blockInfo, err = suite.wallet.GetBlockInfo(^uint64(0))
-	if assert.NotNil(suite.T(), err, "err is nil") {
-		assert.Equal(suite.T(), "Incorrect \"height\"", err.Error(), "error description incorrect")
-	}
-}
-
-func (suite *walletTestSuite) TestGetRewardRecipientInfo() {
-	rewardRecipientInfo, err := suite.wallet.GetRewardRecipientInfo(6418289488649374107)
-	if assert.Nil(suite.T(), err, "err isn't nil") {
-		assert.Equal(suite.T(), uint64(0x8eb24392c2bdbb61), rewardRecipientInfo.RewardRecipientID,
-			"RewardRecipientID incorrect")
-	}
-
-	rewardRecipientInfo, err = suite.wallet.GetRewardRecipientInfo(0)
-	if assert.NotNil(suite.T(), err, "err is nil") {
-		assert.Equal(suite.T(), "Unknown account", err.Error(), "err description incorrect")
-	}
+	_, err = suite.wh.GetBlockInfo(^uint64(0))
+	assert.NotNil(suite.T(), err, "err is nil")
 }
 
 func (suite *walletTestSuite) TestSubmitNonce() {
-	deadline, err := suite.wallet.SubmitNonce(1337, 6418289488649374107)
+	deadline, err := suite.wh.SubmitNonce(1337, 6418289488649374107)
 	if assert.Nil(suite.T(), err, "err isn't nil") {
 		assert.NotEmpty(suite.T(), deadline, "deadline is empty")
 	}
 
-	deadline, err = suite.wallet.SubmitNonce(1337, 1337)
-	if assert.NotNil(suite.T(), err, "err isn't nil") {
-		assert.Equal(suite.T(), "Passphrase does not match reward recipient", err.Error(),
-			"err description incorrect")
-	}
+	_, err = suite.wh.SubmitNonce(1337, 1337)
+	assert.NotNil(suite.T(), err, "err isn't nil")
 }
 
 func (suite *walletTestSuite) TestSendPayment() {
-	_, err := suite.wallet.SendPayment(133, 0)
-	if assert.NotNil(suite.T(), err, "err is nil") {
-		assert.Equal(suite.T(), "Incorrect \"amount\"", err.Error(), "err description incorrect")
-	}
+	_, err := suite.wh.SendPayment(133, 0)
+	assert.NotNil(suite.T(), err, "err is nil")
 
 	// TODO: this would send money through the test network
-	txID, err := suite.wallet.SendPayment(133, 1)
+	txID, err := suite.wh.SendPayment(133, 1)
 
 	assert.Nil(suite.T(), err, "err isn't nil")
 	assert.NotEmpty(suite.T(), txID, "txID is empty")
 }
 
-func (suite *walletTestSuite) TestGetBalance() {
-	balance, err := suite.wallet.GetBalance(6418289488649374107)
-	if assert.Nil(suite.T(), err, "err isn't nil") {
-		assert.NotEmpty(suite.T(), balance, "balance is empty")
-	}
-
-	balance, err = suite.wallet.GetBalance(0)
-	if assert.NotNil(suite.T(), err, "err is nil") {
-		assert.Equal(suite.T(), "Unknown account", err.Error(), "error description incorrect")
-	}
-}
-
 func (suite *walletTestSuite) TestGetAccountInfo() {
-	accountInfo, err := suite.wallet.GetAccountInfo(10339657524823662647)
+	accountInfo, err := suite.wh.GetAccountInfo(10339657524823662647)
 	if assert.Nil(suite.T(), err, "err isn't nil") {
 		assert.NotEmpty(suite.T(), accountInfo.Name, "name is empty")
 	}
 
-	accountInfo, err = suite.wallet.GetAccountInfo(0)
-	if assert.NotNil(suite.T(), err, "err is nil") {
-		assert.Equal(suite.T(), "Unknown account", err.Error(), "error description incorrect")
-	}
+	_, err = suite.wh.GetAccountInfo(0)
+	assert.NotNil(suite.T(), err, "err is nil")
 }
 
 func (suite *walletTestSuite) TestWonBlock() {
-	won, _, err := suite.wallet.WonBlock(1, 2)
+	won, _, err := suite.wh.WonBlock(1, 2, 3)
 	if assert.Nil(suite.T(), err, "err occured") {
 		assert.False(suite.T(), won, "shouldn't have won")
 	}
 
-	won, _, err = suite.wallet.WonBlock(54896, 1)
+	won, _, err = suite.wh.WonBlock(54896, 1, 3)
 	if assert.Nil(suite.T(), err, "err occured") {
 		assert.False(suite.T(), won, "shouldn't have won")
 	}
 
-	won, blockInfo, err := suite.wallet.WonBlock(54896, 123575369)
+	won, blockInfo, err := suite.wh.WonBlock(54896, 10282355196851764065, 123575369)
 	if assert.Nil(suite.T(), err, "err occured") {
 		assert.True(suite.T(), won, "should have won")
 		assert.Equal(suite.T(), blockInfo.GeneratorID, uint64(10282355196851764065), "GeneratorID is wrong")
@@ -145,7 +100,7 @@ func (suite *walletTestSuite) TestWonBlock() {
 
 func (suite *walletTestSuite) TestGetIncomingMsgsSince() {
 	date := time.Unix(1518220800, 0)
-	msgOf, err := suite.wallet.GetIncomingMsgsSince(date)
+	msgOf, err := suite.wh.GetIncomingMsgsSince(date)
 	if assert.Nil(suite.T(), err, "err occured") {
 		assert.NotEmpty(suite.T(), msgOf, "no tx ids")
 		assert.Equal(suite.T(), "10", msgOf[12441003299556495598], "msg wrong")

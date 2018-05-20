@@ -20,7 +20,7 @@ type modelxTestSuite struct {
 	modelx *Modelx
 }
 
-var walletMock mocks.Wallet
+var walletHandlerMock mocks.WalletHandler
 
 func init() {
 	InitCache()
@@ -29,11 +29,11 @@ func init() {
 
 func (suite *modelxTestSuite) SetupTest() {
 	InitCache()
-	walletMock.On("GetMiningInfo").Return(&wallet.MiningInfo{
+	walletHandlerMock.On("GetMiningInfo").Return(&wallet.MiningInfo{
 		Height:              9000000,
 		BaseTarget:          1176576,
 		GenerationSignature: "35844ab83e21851b38340cd7e8fc96b8bc139c132759ce3de1fcb616d888f2c9"}, nil)
-	suite.modelx = NewModelX(&walletMock)
+	suite.modelx = NewModelX(&walletHandlerMock)
 }
 
 func (suite *modelxTestSuite) TearDownSuite() {
@@ -123,15 +123,15 @@ func (suite *modelxTestSuite) TestRereadMinerNames() {
 
 	miner2 := Miner{ID: 2}
 
-	Cache.StoreMiner(&miner1)
-	Cache.StoreMiner(&miner2)
+	Cache.LoadOrStoreMiner(&miner1)
+	Cache.LoadOrStoreMiner(&miner2)
 
 	accountSQL := `INSERT INTO account (id, address, name) VALUES(?, ?, ?)`
 	suite.modelx.db.MustExec(accountSQL, miner2.ID, "1", "")
 	suite.modelx.db.MustExec(accountSQL, miner1.ID, "2", nil)
 
-	walletMock.On("GetAccountInfo", uint64(1)).Return(&wallet.AccountInfo{Name: "one"}, nil)
-	walletMock.On("GetAccountInfo", uint64(2)).Return(&wallet.AccountInfo{Name: "two"}, nil)
+	walletHandlerMock.On("GetAccountInfo", uint64(1)).Return(&wallet.AccountInfo{Name: "one"}, nil)
+	walletHandlerMock.On("GetAccountInfo", uint64(2)).Return(&wallet.AccountInfo{Name: "two"}, nil)
 
 	suite.modelx.RereadMinerNames()
 
@@ -190,7 +190,7 @@ func (suite *modelxTestSuite) TestCreateMiner() {
 		Name:            "blubber",
 		DeadlinesParams: list.New(),
 		Pending:         0}
-	walletMock.On("GetAccountInfo", uint64(expectedMiner.ID)).Return(
+	walletHandlerMock.On("GetAccountInfo", uint64(expectedMiner.ID)).Return(
 		&wallet.AccountInfo{Name: expectedMiner.Name}, nil)
 
 	miner, err := suite.modelx.createMiner(expectedMiner.ID)
@@ -217,7 +217,7 @@ func (suite *modelxTestSuite) TestCreateMiner() {
 }
 
 func (suite *modelxTestSuite) TestNewBlock() {
-	walletMock.On("GetGenerationTime", uint64(9000000)).Return(int32(1234), nil)
+	walletHandlerMock.On("GetGenerationTime", uint64(9000000)).Return(int32(1234), nil)
 
 	baseTarget := uint64(1037678)
 	genSig := "e7f3694df0ee08482bfdc9a8f606ad550161de7b0ef62f9fcb88e766205af075"
@@ -243,12 +243,12 @@ func (suite *modelxTestSuite) TestFirstOrCreateMiner() {
 		ID:              88899,
 		DeadlinesParams: list.New()}
 
-	Cache.StoreMiner(&miner)
+	Cache.LoadOrStoreMiner(&miner)
 	assert.Equal(suite.T(), &miner, suite.modelx.FirstOrCreateMiner(miner.ID),
 		"did not return cached miner")
 
 	Cache.DeleteMiner(miner.ID)
-	walletMock.On("GetAccountInfo", miner.ID).Return(&wallet.AccountInfo{Name: "josef"}, nil)
+	walletHandlerMock.On("GetAccountInfo", miner.ID).Return(&wallet.AccountInfo{Name: "josef"}, nil)
 	createdMiner := suite.modelx.FirstOrCreateMiner(miner.ID)
 	if !assert.NotNil(suite.T(), createdMiner, "miner is nil") {
 		return
@@ -287,11 +287,7 @@ func (suite *modelxTestSuite) TestUpdateOrCreateNonceSubmission() {
 
 	Cache.StoreCurrentBlock(Block{Height: miner.CurrentBlockHeight() + 1})
 
-	err := suite.modelx.UpdateOrCreateNonceSubmission(miner,
-		&Block{
-			Height:     miner.CurrentBlockHeight() + 1,
-			BaseTarget: 11},
-		123, 107)
+	err := suite.modelx.UpdateOrCreateNonceSubmission(miner, miner.CurrentBlockHeight()+1, 123, 107, 11)
 	if assert.Nil(suite.T(), err, "error occured") {
 		assert.Equal(suite.T(), uint64(123), miner.CurrentDeadline(), "deadline set wrong")
 		assert.Equal(suite.T(), uint64(1), miner.CurrentBlockHeight(), "curentBlockHeight wrong")
@@ -299,11 +295,7 @@ func (suite *modelxTestSuite) TestUpdateOrCreateNonceSubmission() {
 		assert.Equal(suite.T(), float64(0), miner.WeightedDeadlineSum, "WeightedDeadlineSum wrong")
 	}
 
-	err = suite.modelx.UpdateOrCreateNonceSubmission(miner,
-		&Block{
-			Height:     miner.CurrentBlockHeight(),
-			BaseTarget: 11},
-		23, 24)
+	err = suite.modelx.UpdateOrCreateNonceSubmission(miner, miner.CurrentBlockHeight(), 23, 24, 11)
 	if assert.Nil(suite.T(), err, "error occured") {
 		assert.Equal(suite.T(), uint64(23), miner.CurrentDeadline(), "deadline set wrong")
 		assert.Equal(suite.T(), uint64(1), miner.CurrentBlockHeight(), "currentBlockHeight wrong")
@@ -332,7 +324,7 @@ func (suite *modelxTestSuite) TestUpdateBestSubmission() {
 	minerSQL := `INSERT INTO miner (id) VALUES(?)`
 	suite.modelx.db.MustExec(minerSQL, miner.ID)
 
-	err := suite.modelx.UpdateOrCreateNonceSubmission(miner, &Block{Height: height}, 213, 65)
+	err := suite.modelx.UpdateOrCreateNonceSubmission(miner, height, 213, 65, 11)
 	if assert.Nil(suite.T(), err, "error occured") {
 		suite.modelx.UpdateBestSubmission(miner.ID, height)
 		assert.Nil(suite.T(), err, "error shouldn't have occured")
@@ -470,9 +462,9 @@ func (suite *modelxTestSuite) TestPayout() {
 	miner1 := &Miner{
 		ID:      155676632,
 		Pending: 12345678900000}
-	walletMock.On("SendPayment", miner1.ID, miner1.Pending-Cfg.TxFee).Return(
+	walletHandlerMock.On("SendPayment", miner1.ID, miner1.Pending-Cfg.TxFee).Return(
 		uint64(1), nil)
-	Cache.StoreMiner(miner1)
+	Cache.LoadOrStoreMiner(miner1)
 	suite.modelx.db.MustExec(`INSERT INTO account
                 (id, pending, address)
                 VALUES (?, ?, ?)`, miner1.ID, miner1.Pending, miner1.ID)
@@ -492,7 +484,7 @@ func (suite *modelxTestSuite) TestPayout() {
 	miner2 := &Miner{
 		ID:      155676633,
 		Pending: 1000000000}
-	Cache.StoreMiner(miner1)
+	Cache.LoadOrStoreMiner(miner1)
 	suite.modelx.db.MustExec(`INSERT INTO account
                 (id, pending, address)
                 VALUES (?, ?, ?)`, miner2.ID, miner2.Pending, miner2.ID)
@@ -512,9 +504,9 @@ func (suite *modelxTestSuite) TestPayout() {
 	miner3 := &Miner{
 		ID:      155676638,
 		Pending: 9876543211123}
-	walletMock.On("SendPayment", miner3.ID, miner3.Pending-Cfg.TxFee).Return(
+	walletHandlerMock.On("SendPayment", miner3.ID, miner3.Pending-Cfg.TxFee).Return(
 		uint64(3), nil)
-	Cache.StoreMiner(miner3)
+	Cache.LoadOrStoreMiner(miner3)
 	suite.modelx.db.MustExec(`INSERT INTO account
                 (id, pending, address, next_payout_date, payout_interval)
                 VALUES (?, ?, ?, ?, ?)`, miner3.ID, miner3.Pending, miner3.ID, time.Now(), "weekly")
@@ -542,9 +534,9 @@ func (suite *modelxTestSuite) TestPayout() {
 	miner4 := &Miner{
 		ID:      155672638,
 		Pending: 10000000000000}
-	walletMock.On("SendPayment", miner4.ID, miner4.Pending-Cfg.TxFee).Return(
+	walletHandlerMock.On("SendPayment", miner4.ID, miner4.Pending-Cfg.TxFee).Return(
 		uint64(4), nil)
-	Cache.StoreMiner(miner4)
+	Cache.LoadOrStoreMiner(miner4)
 	suite.modelx.db.MustExec(`INSERT INTO account
                 (id, pending, address, next_payout_date)
                 VALUES (?, ?, ?, ?)`, miner4.ID, miner4.Pending, miner4.ID, time.Now().AddDate(0, 0, 1))
@@ -564,9 +556,9 @@ func (suite *modelxTestSuite) TestPayout() {
 	miner5 := &Miner{
 		ID:      152672638,
 		Pending: 100000001}
-	walletMock.On("SendPayment", miner5.ID, miner5.Pending-Cfg.TxFee).Return(
+	walletHandlerMock.On("SendPayment", miner5.ID, miner5.Pending-Cfg.TxFee).Return(
 		uint64(5), nil)
-	Cache.StoreMiner(miner5)
+	Cache.LoadOrStoreMiner(miner5)
 	suite.modelx.db.MustExec(`INSERT INTO account
                 (id, pending, address, min_payout_value)
                 VALUES (?, ?, ?, ?)`, miner5.ID, miner5.Pending, miner5.ID, 1)
@@ -586,7 +578,7 @@ func (suite *modelxTestSuite) TestPayout() {
 	miner6 := &Miner{
 		ID:      152672038,
 		Pending: 100000001}
-	Cache.StoreMiner(miner6)
+	Cache.LoadOrStoreMiner(miner6)
 	suite.modelx.db.MustExec(`INSERT INTO account
                 (id, pending, address, min_payout_value)
                 VALUES (?, ?, ?, ?)`, miner6.ID, miner6.Pending, miner6.ID, 2)
@@ -685,7 +677,7 @@ func TestMiner(t *testing.T) {
 
 	miner := &Miner{ID: 1}
 
-	Cache.StoreMiner(miner)
+	Cache.LoadOrStoreMiner(miner)
 	assert.Equal(t, miner, Cache.GetMiner(miner.ID), "did not return same miner")
 
 	Cache.DeleteMiner(miner.ID)
@@ -695,8 +687,8 @@ func TestMiner(t *testing.T) {
 
 	miner2 := &Miner{ID: 2}
 
-	Cache.StoreMiner(miner1)
-	Cache.StoreMiner(miner2)
+	Cache.LoadOrStoreMiner(miner1)
+	Cache.LoadOrStoreMiner(miner2)
 
 	Cache.MinerRange(func(k, v interface{}) bool {
 		miner := v.(*Miner)

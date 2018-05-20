@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"goburst/burstmath"
 	"io/ioutil"
 	. "logger"
 	"modelx"
@@ -18,7 +19,6 @@ import (
 	"sync/atomic"
 	"text/template"
 	"time"
-	"util"
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
@@ -166,7 +166,8 @@ func GenMinerInfo(accountID uint64) *api.MinerInfo {
 		historicalShare = cap / poolCap
 	}
 
-	return &api.MinerInfo{
+	miner.Lock()
+	mi := &api.MinerInfo{
 		Address:               miner.Address,
 		Name:                  miner.Name,
 		Pending:               miner.Pending,
@@ -176,6 +177,9 @@ func GenMinerInfo(accountID uint64) *api.MinerInfo {
 		LastActiveBlockHeight: miner.CurrentBlockHeight(),
 		NConf:        int32(miner.DeadlinesParams.Len()),
 		PayoutDetail: miner.PayoutDetail}
+	miner.Unlock()
+
+	return mi
 }
 
 func (webServer *WebServer) indexHandler(w http.ResponseWriter, r *http.Request) {
@@ -216,16 +220,18 @@ func (webServer *WebServer) updateMinerInfos() {
 		minerCount++
 
 		capacity := miner.CalculateEEPS() * 1000.0
+		miner.Lock()
 		mi := &MinerInfo{
-			ID:                    miner.ID,
+			ID:                    k.(uint64),
 			Name:                  miner.Name,
 			Address:               miner.Address,
-			Pending:               util.PlanckToDecimal(miner.Pending),
+			Pending:               burstmath.PlanckToBurst(miner.Pending),
 			HistoricalShare:       0.0,
 			NConf:                 miner.DeadlinesParams.Len(),
 			Capacity:              capacity,
 			Deadline:              miner.CurrentDeadline(),
 			LastActiveBlockHeight: miner.CurrentBlockHeight()}
+		miner.Unlock()
 		mis = append(mis, mi)
 
 		if mi.LastActiveBlockHeight == currentBlock.Height {

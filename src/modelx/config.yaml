@@ -8,6 +8,10 @@ minimumPayout: 25000000000
 txFee: 100000000
 poolFeeShare: 0.0
 deadlineLimit: 10000000000
+walletDB:
+  user: "root"
+  password: ""
+  name: "testburstwallet"
 db:
   user: "root"
   password: ""

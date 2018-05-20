@@ -3,6 +3,8 @@
 package modelx
 
 import (
+	. "config"
+	"math"
 	"sync"
 	"sync/atomic"
 )
@@ -16,6 +18,8 @@ type cache struct {
 
 	rewardRecipient   map[uint64]bool
 	rewardRecipientMu sync.RWMutex
+
+	alphas []float64
 }
 
 var Cache *cache
@@ -26,6 +30,7 @@ func InitCache() {
 	c.StoreCurrentBlock(Block{})
 	c.StorePoolCap(0.0)
 	c.rewardRecipient = make(map[uint64]bool)
+	c.computeAlphas(Cfg.NAVG, Cfg.NMin)
 	Cache = &c
 }
 
@@ -53,7 +58,7 @@ func (c *cache) CurrentBlock() Block {
 	return c.currentBlock.Load().(Block)
 }
 
-func (c *cache) StoreMiner(m *Miner) *Miner {
+func (c *cache) LoadOrStoreMiner(m *Miner) *Miner {
 	v, _ := c.miners.LoadOrStore(m.ID, m)
 	return v.(*Miner)
 }
@@ -103,4 +108,27 @@ func (c *cache) StoreBestNonceSubmission(bestNonceSubmission NonceSubmission) {
 
 func (c *cache) BestNonceSubmission() NonceSubmission {
 	return c.bestNonceSubmission.Load().(NonceSubmission)
+}
+
+func (c *cache) alpha(nConf int) float64 {
+	if nConf == 0 {
+		return 0.0
+	}
+	if len(c.alphas) < nConf {
+		return 1.0
+	}
+	return c.alphas[nConf-1]
+}
+
+func (c *cache) computeAlphas(nAvg int, nMin int) {
+	c.alphas = make([]float64, nAvg)
+	for i := 0; i < nAvg; i++ {
+		if i < nMin-1 {
+			c.alphas[i] = 0.0
+		} else {
+			nConf := float64(i + 1)
+			c.alphas[i] = 1.0 - (float64(nAvg)-nConf)/nConf*math.Log(float64(nAvg)/(float64(nAvg)-nConf))
+		}
+	}
+	c.alphas[nAvg-1] = 1.0
 }

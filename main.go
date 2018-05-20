@@ -6,26 +6,21 @@ import (
 	. "config"
 	"modelx"
 	"pool"
-	"runtime"
-	"util"
 	"wallet"
 	"webserver"
 )
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
 	LoadConfig()
 	modelx.InitCache()
-	util.CacheAlphas(Cfg.NAVG, Cfg.NMin)
 
-	wallet := wallet.NewBrsWallet(Cfg.WalletUrls, Cfg.SecretPhrase)
-	modelx := modelx.NewModelX(wallet)
+	walletHandler := wallet.NewWalletHandler(Cfg.WalletUrls, Cfg.SecretPhrase, Cfg.WalletTimeoutDur)
+	modelx := modelx.NewModelX(walletHandler)
 
 	webServer := webserver.NewWebServer(modelx)
 	webServer.Run()
 
-	pool := pool.NewPool(modelx, wallet)
+	pool := pool.NewPool(modelx, walletHandler)
 	pool.Run()
 
 	select {}

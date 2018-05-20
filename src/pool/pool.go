@@ -7,51 +7,45 @@ import (
 	"encoding/json"
 	"fmt"
 	"go.uber.org/zap"
+	"goburst/burstmath"
 	. "logger"
 	. "modelx"
 	"net"
 	"net/http"
+	"runtime"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
-	"util"
 	"wallet"
 
-	"github.com/klauspost/cpuid"
 	"github.com/throttled/throttled"
 	"github.com/throttled/throttled/store/memstore"
 )
 
 const (
-	AVX2Parallel           = 8
-	SSE4Parallel           = 4
 	submitBefore           = 30 * time.Second
 	nonceSubmissionRetries = 3
 )
 
 type Pool struct {
-	modelx            *Modelx
-	wallet            wallet.Wallet
-	miningInfoJSONMu  sync.RWMutex
-	miningInfoJSON    []byte
-	nonceSubmissions  chan NonceSubmission
-	newBlocks         chan Block
-	calcDeadlineReqs  chan calcDeadlineReq
-	currentScoop      uint32
-	currentBaseTarget uint64
-	currentHeight     uint64
-	currentGenSig     atomic.Value
+	modelx                 *Modelx
+	walletHandler          wallet.WalletHandler
+	miningInfoJSON         atomic.Value
+	nonceSubmissions       chan NonceSubmission
+	newBlocks              chan Block
+	roundInfo              atomic.Value
+	deadlineRequestHandler *burstmath.DeadlineRequestHandler
 }
 
-type calcDeadlineReq struct {
-	accountID uint64
-	nonce     uint64
-	deadline  chan uint64
+type roundInfo struct {
+	scoop      uint32
+	baseTarget uint64
+	height     uint64
+	genSig     []byte
 }
 
-func NewPool(modelx *Modelx, wallet wallet.Wallet) *Pool {
-	miningInfo, err := wallet.GetMiningInfo()
+func NewPool(modelx *Modelx, walletHandler wallet.WalletHandler) *Pool {
+	miningInfo, err := walletHandler.GetMiningInfo()
 	if err != nil {
 		Logger.Fatal("Error getting mining info")
 	}
@@ -62,29 +56,19 @@ func NewPool(modelx *Modelx, wallet wallet.Wallet) *Pool {
 	}
 
 	pool := &Pool{
-		wallet:           wallet,
-		modelx:           modelx,
-		miningInfoJSON:   miningInfoBytes,
-		miningInfoJSONMu: sync.RWMutex{},
-		nonceSubmissions: make(chan NonceSubmission),
-		newBlocks:        make(chan Block),
-		calcDeadlineReqs: make(chan calcDeadlineReq)}
+		walletHandler:          walletHandler,
+		modelx:                 modelx,
+		nonceSubmissions:       make(chan NonceSubmission),
+		newBlocks:              make(chan Block),
+		deadlineRequestHandler: burstmath.NewDeadlineRequestHandler(runtime.NumCPU())}
+
+	pool.miningInfoJSON.Store(miningInfoBytes)
 
 	currentBlock := Cache.CurrentBlock()
 	pool.updateRoundInfo(&currentBlock)
 
 	go pool.checkAndAddNewBlockJob()
 	go pool.forge(currentBlock)
-
-	if cpuid.CPU.AVX2() {
-		Logger.Info("using avx2")
-		go pool.collectDeadlineReqsAVX2()
-	} else if cpuid.CPU.SSE4() {
-		Logger.Info("using sse4")
-		go pool.collectDeadlineReqsSSE4()
-	} else {
-		Logger.Fatal("avx2 and sse4 not available")
-	}
 
 	return pool
 }
@@ -105,88 +89,11 @@ func jsonFromMiningInfo(miningInfo *wallet.MiningInfo) ([]byte, error) {
 }
 
 func (pool *Pool) updateRoundInfo(block *Block) {
-	atomic.StoreUint32(&pool.currentScoop, block.Scoop)
-	atomic.StoreUint64(&pool.currentBaseTarget, block.BaseTarget)
-	atomic.StoreUint64(&pool.currentHeight, block.Height)
-	pool.currentGenSig.Store(block.GenerationSignatureBytes)
-}
-
-func (pool *Pool) collectDeadlineReqsSSE4() {
-	var start <-chan time.Time
-
-	var reqs [SSE4Parallel]calcDeadlineReq
-	var pending int
-	for {
-		select {
-		case reqs[pending] = <-pool.calcDeadlineReqs:
-			if pending == 0 {
-				start = time.After(2 * time.Second)
-			} else if pending == SSE4Parallel-1 {
-				go pool.processReqsSSE4(reqs, pending+1)
-				pending = 0
-				continue
-			}
-			pending++
-		case <-start:
-			go pool.processReqsSSE4(reqs, pending+1)
-			pending = 0
-		}
-	}
-}
-
-func (pool *Pool) processReqsSSE4(reqs [SSE4Parallel]calcDeadlineReq, total int) {
-	var dls [SSE4Parallel]uint64
-	dls[0], dls[1], dls[2], dls[3] = util.CalculateDeadlinesSSE4(
-		atomic.LoadUint32(&pool.currentScoop), atomic.LoadUint64(&pool.currentBaseTarget),
-		pool.currentGenSig.Load().([]byte), atomic.LoadUint64(&pool.currentHeight) >= Cfg.PoC2StartHeight,
-
-		reqs[0].accountID, reqs[1].accountID, reqs[2].accountID, reqs[3].accountID,
-
-		reqs[0].nonce, reqs[1].nonce, reqs[2].nonce, reqs[3].nonce)
-
-	for i := 0; i < total; i++ {
-		reqs[i].deadline <- dls[i]
-	}
-}
-
-func (pool *Pool) collectDeadlineReqsAVX2() {
-	var start <-chan time.Time
-
-	var reqs [AVX2Parallel]calcDeadlineReq
-	var pending int
-	for {
-		select {
-		case reqs[pending] = <-pool.calcDeadlineReqs:
-			if pending == 0 {
-				start = time.After(2 * time.Second)
-			} else if pending == AVX2Parallel-1 {
-				go pool.processReqsAVX2(reqs, pending+1)
-				pending = 0
-				continue
-			}
-			pending++
-		case <-start:
-			go pool.processReqsAVX2(reqs, pending+1)
-			pending = 0
-		}
-	}
-}
-
-func (pool *Pool) processReqsAVX2(reqs [AVX2Parallel]calcDeadlineReq, total int) {
-	var dls [AVX2Parallel]uint64
-	dls[0], dls[1], dls[2], dls[3], dls[4], dls[5], dls[6], dls[7] = util.CalculateDeadlinesAVX2(
-		atomic.LoadUint32(&pool.currentScoop), atomic.LoadUint64(&pool.currentBaseTarget),
-		pool.currentGenSig.Load().([]byte), atomic.LoadUint64(&pool.currentHeight) >= Cfg.PoC2StartHeight,
-
-		reqs[0].accountID, reqs[1].accountID, reqs[2].accountID, reqs[3].accountID,
-		reqs[4].accountID, reqs[5].accountID, reqs[6].accountID, reqs[7].accountID,
-
-		reqs[0].nonce, reqs[1].nonce, reqs[2].nonce, reqs[3].nonce,
-		reqs[4].nonce, reqs[5].nonce, reqs[6].nonce, reqs[7].nonce)
-
-	for i := 0; i < total; i++ {
-		reqs[i].deadline <- dls[i]
-	}
+	pool.roundInfo.Store(roundInfo{
+		scoop:      block.Scoop,
+		baseTarget: block.BaseTarget,
+		height:     block.Height,
+		genSig:     block.GenerationSignatureBytes})
 }
 
 func (pool *Pool) forge(currentBlock Block) {
@@ -217,7 +124,8 @@ func (pool *Pool) forge(currentBlock Block) {
 	for {
 		select {
 		case nonceSubmission := <-pool.nonceSubmissions:
-			if bestNonceSubmission.Deadline < nonceSubmission.Deadline {
+			if bestNonceSubmission.Deadline <= nonceSubmission.Deadline ||
+				currentBlock.Height != nonceSubmission.Height {
 				continue
 			}
 			Logger.Info("new best deadline", zap.Uint64("deadline", nonceSubmission.Deadline))
@@ -240,7 +148,7 @@ func (pool *Pool) submitNonce(nonceSubmission *NonceSubmission) {
 	Logger.Info("submitting best nonce")
 	tries := 0
 RETRY:
-	walletDeadline, err := pool.wallet.SubmitNonce(nonceSubmission.Nonce, nonceSubmission.MinerID)
+	walletDeadline, err := pool.walletHandler.SubmitNonce(nonceSubmission.Nonce, nonceSubmission.MinerID)
 	if err != nil {
 		if tries < nonceSubmissionRetries {
 			tries++
@@ -257,7 +165,7 @@ RETRY:
 }
 
 func (pool *Pool) checkAndAddNewBlock() {
-	miningInfo, err := pool.wallet.GetMiningInfo()
+	miningInfo, err := pool.walletHandler.GetMiningInfo()
 	if err != nil {
 		return
 	}
@@ -281,10 +189,7 @@ func (pool *Pool) checkAndAddNewBlock() {
 		}
 
 		pool.updateRoundInfo(&newBlock)
-
-		pool.miningInfoJSONMu.Lock()
-		pool.miningInfoJSON = miningInfoBytes
-		pool.miningInfoJSONMu.Unlock()
+		pool.miningInfoJSON.Store(miningInfoBytes)
 
 		// for forging
 		pool.newBlocks <- newBlock
@@ -326,13 +231,13 @@ func formatJSONError(errorCode int64, errorMsg string) []uint8 {
 }
 
 func (pool *Pool) processSubmitNonceRequest(w http.ResponseWriter, req *http.Request) {
-	currentBlock := Cache.CurrentBlock()
+	ri := pool.roundInfo.Load().(roundInfo)
 	requestLogger := RequestLogger(req)
 
 	if minerHeight, err := strconv.ParseUint(req.Form.Get("blockheight"), 10, 64); err == nil {
-		if minerHeight != currentBlock.Height {
+		if minerHeight != ri.height {
 			requestLogger.Warn("Miner submitted on invalid height",
-				zap.Uint64("got", minerHeight), zap.Uint64("expected", currentBlock.Height))
+				zap.Uint64("got", minerHeight), zap.Uint64("expected", ri.height))
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write(formatJSONError(1005, "Submitted on wrong height"))
 			return
@@ -386,12 +291,9 @@ func (pool *Pool) processSubmitNonceRequest(w http.ResponseWriter, req *http.Req
 	}
 
 	// Calculate deadline and check against limit
-	deadlineReq := calcDeadlineReq{
-		accountID: accountID,
-		nonce:     nonce,
-		deadline:  make(chan uint64, 1)}
-	pool.calcDeadlineReqs <- deadlineReq
-	deadline := <-deadlineReq.deadline
+	deadlineReq := burstmath.NewCalcDeadlineRequest(accountID, nonce, ri.baseTarget, ri.scoop, ri.genSig,
+		ri.height >= Cfg.PoC2StartHeight)
+	deadline := pool.deadlineRequestHandler.CalcDeadline(deadlineReq)
 
 	if Cfg.DeadlineLimit != 0 && deadline > Cfg.DeadlineLimit {
 		requestLogger.Warn("calculated deadline exceeds pool limit", zap.Uint64("got", deadline),
@@ -408,10 +310,8 @@ func (pool *Pool) processSubmitNonceRequest(w http.ResponseWriter, req *http.Req
 		Result:   "success"})
 	w.Write(deadlineResp)
 
-	miner.Lock()
-	defer miner.Unlock()
-
-	if err := pool.modelx.UpdateOrCreateNonceSubmission(miner, &currentBlock, deadline, nonce); err != nil {
+	err = pool.modelx.UpdateOrCreateNonceSubmission(miner, ri.height, deadline, nonce, ri.baseTarget)
+	if err != nil {
 		requestLogger.Error("updating deadline failed", zap.Error(err))
 		return
 	}
@@ -423,7 +323,7 @@ func (pool *Pool) processSubmitNonceRequest(w http.ResponseWriter, req *http.Req
 		Address:  miner.Address,
 		Deadline: deadline,
 		Nonce:    nonce,
-		Height:   currentBlock.Height}
+		Height:   ri.height}
 	pool.nonceSubmissions <- nonceSubmission
 }
 
@@ -442,9 +342,9 @@ func generateLimiterKey(req *http.Request) string {
 }
 
 func logIncomingRequest(req *http.Request) {
-	ip, _, _ := net.SplitHostPort(req.RemoteAddr)
-	RequestLogger(req).Info("incoming request", zap.String("ip", ip), zap.String("uri", req.RequestURI),
-		zap.String("user-agent", req.UserAgent()))
+	// ip, _, _ := net.SplitHostPort(req.RemoteAddr)
+	// RequestLogger(req).Info("incoming request", zap.String("ip", ip), zap.String("uri", req.RequestURI),
+	// 	zap.String("user-agent", req.UserAgent()))
 }
 
 func (pool *Pool) serve() {
@@ -473,9 +373,7 @@ func (pool *Pool) serve() {
 
 			switch req.Form.Get("requestType") {
 			case "getMiningInfo":
-				pool.miningInfoJSONMu.RLock()
-				w.Write(pool.miningInfoJSON)
-				pool.miningInfoJSONMu.RUnlock()
+				w.Write(pool.miningInfoJSON.Load().([]byte))
 			case "submitNonce":
 				pool.processSubmitNonceRequest(w, req)
 			}

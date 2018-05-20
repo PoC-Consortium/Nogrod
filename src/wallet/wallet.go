@@ -7,38 +7,42 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/spebern/globa"
+	"goburst/burstmath"
 	"io/ioutil"
 	. "logger"
 	"net/http"
 	"strconv"
 	"time"
-	"util"
 
 	"go.uber.org/zap"
 )
 
-type Wallet interface {
-	Stop()
+type WalletHandler interface {
 	GetMiningInfo() (*MiningInfo, error)
-	GetConstantsInfo() (*ConstantsInfo, error)
 	GetBlockInfo(uint64) (*BlockInfo, error)
-	GetRewardRecipientInfo(uint64) (*RewardRecipientInfo, error)
 	SubmitNonce(uint64, uint64) (uint64, error)
 	SendPayment(uint64, int64) (uint64, error)
-	GetBalance(uint64) (int64, error)
 	GetAccountInfo(uint64) (*AccountInfo, error)
-	WonBlock(uint64, uint64) (bool, *BlockInfo, error)
-	IsPoolRewardRecipient(accountID uint64) (bool, error)
+	WonBlock(uint64, uint64, uint64) (bool, *BlockInfo, error)
 	GetGenerationTime(height uint64) (int32, error)
-	GetIncomingMsgsSince(date time.Time, height uint64) (map[uint64]string, error)
+	GetIncomingMsgsSince(date time.Time) (map[uint64]string, error)
 }
 
-type BrsWallet struct {
-	stopHandlingUrls chan bool
-	secretPhrase     string
-	client           *http.Client
-	lb               globa.LoadBalancer
+type walletHandler struct {
+	wallets      []*wallet
+	secretPhrase string
+}
+
+type wallet struct {
+	url     string
+	baseURL string
+	client  *http.Client
+}
+
+type reqResult struct {
+	body []byte
+	url  *string
+	err  error
 }
 
 type MiningInfo struct {
@@ -59,16 +63,6 @@ type BlockInfo struct {
 	WithErrorReponse
 }
 
-type ConstantsInfo struct {
-	GenesisBlockID uint64 `json:"genesisBlockId,string"`
-	WithErrorReponse
-}
-
-type RewardRecipientInfo struct {
-	RewardRecipientID uint64 `json:"rewardRecipient,string"`
-	WithErrorReponse
-}
-
 type NonceInfoResponse struct {
 	Deadline uint64 `json:"deadline"`
 	Result   string `json:"result"`
@@ -77,11 +71,6 @@ type NonceInfoResponse struct {
 
 type SendMoneyResponse struct {
 	TxID uint64 `json:"transaction,string"`
-	WithErrorReponse
-}
-
-type GetBalanceResponse struct {
-	GuaranteedBalanceNQT int64 `json:"guaranteedBalanceNQT,string"`
 	WithErrorReponse
 }
 
@@ -109,373 +98,302 @@ type WithErrorReponse struct {
 	ErrorDescription string `json:"errorDescription,omitempty"`
 }
 
-func NewBrsWallet(walletUrls []string, secretPhrase string) *BrsWallet {
-	wallet := BrsWallet{
-		secretPhrase:     secretPhrase,
-		client:           &http.Client{},
-		stopHandlingUrls: make(chan bool),
-		lb:               globa.NewLoadBalancer(walletUrls, 30, 10*time.Second, 0.2)}
-
-	go wallet.handleUrls()
-	return &wallet
+func NewWalletHandler(walletURLS []string, secretPhrase string, timeout time.Duration) WalletHandler {
+	wallets := make([]*wallet, len(walletURLS))
+	for i, url := range walletURLS {
+		wallets[i] = newWallet(url, timeout)
+	}
+	return &walletHandler{
+		wallets:      wallets,
+		secretPhrase: secretPhrase}
 }
 
-func (wallet *BrsWallet) Stop() {
-	wallet.stopHandlingUrls <- true
+func newWallet(url string, timeout time.Duration) *wallet {
+	return &wallet{
+		url:     url,
+		baseURL: url + "/burst",
+		client:  &http.Client{Timeout: timeout}}
 }
 
-func (wallet *BrsWallet) handleUrls() {
-	t := time.NewTicker(4 * time.Minute)
-	for {
-		select {
-		case <-t.C:
-			wallet.lb.Recover()
-		case <-wallet.stopHandlingUrls:
-			return
-		}
-	}
+func (w *wallet) err(err error) *reqResult {
+	return &reqResult{
+		body: nil,
+		err:  err,
+		url:  &w.url}
 }
 
-func (wallet *BrsWallet) request(method string, queryParams map[string]string) ([]byte, error) {
-	walletUrl, err := wallet.lb.GetLeastBusyURL()
+func (w *wallet) request(method string, params map[string]string) *reqResult {
+	req, err := http.NewRequest(method, w.baseURL, nil)
 	if err != nil {
-		Logger.Error("no remaining working wallets... recovering")
-		wallet.lb.Recover()
-		return []byte{}, err
-	}
-
-	startTime, err := wallet.lb.IncLoad(walletUrl)
-	if err != nil {
-		Logger.Error("timeout on walleturl", zap.String("walletUrl", walletUrl))
-		return []byte{}, err
-	}
-
-	defer wallet.lb.Done(walletUrl, startTime)
-
-	req, err := http.NewRequest(method, walletUrl+"/burst", nil)
-	req.Close = true
-
-	if err != nil {
-		Logger.Error("creating request to wallet failed", zap.Error(err))
-		return []byte{}, err
+		return w.err(err)
 	}
 
 	q := req.URL.Query()
-	for key, value := range queryParams {
-		q.Add(key, value)
+	for k, v := range params {
+		q.Add(k, v)
 	}
-
 	req.URL.RawQuery = q.Encode()
 
-	resp, err := wallet.client.Do(req)
+	resp, err := w.client.Do(req)
 	if err != nil {
-		Logger.Error("request to wallet failed, removing wallet", zap.Error(err),
-			zap.String("walletUrl", walletUrl))
-		wallet.lb.Remove(walletUrl)
-		return []byte{}, err
+		return w.err(err)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		Logger.Error("reading response from wallet failed", zap.Error(err),
-			zap.String("walletUrl", walletUrl))
-		return []byte{}, err
+		return w.err(err)
 	}
+	resp.Body.Close()
 
-	err = resp.Body.Close()
-	if err != nil {
-		Logger.Error("closing response body failed", zap.Error(err))
-		return []byte{}, err
-	}
-
-	return body, nil
+	return &reqResult{
+		body: body,
+		url:  &w.url}
 }
 
-func (wallet *BrsWallet) GetMiningInfo() (*MiningInfo, error) {
-	requestParams := map[string]string{"requestType": "getMiningInfo"}
-	jsonBytes, err := wallet.request("GET", requestParams)
-	res := MiningInfo{}
-
-	if err != nil {
-		Logger.Error("getting mining info failed", zap.Error(err))
-		return nil, err
+func (wh *walletHandler) requestAll(method string, params map[string]string) ([]*reqResult, error) {
+	resultsC := make(chan *reqResult)
+	for _, w := range wh.wallets {
+		go func(w *wallet) {
+			resultsC <- w.request(method, params)
+		}(w)
 	}
 
-	err = json.Unmarshal(jsonBytes, &res)
-	if err != nil {
-		Logger.Error("unpacking miningInfo json failed", zap.Error(err))
-		return nil, err
+	var results []*reqResult
+	var responded int
+	for res := range resultsC {
+		responded++
+		if res.err == nil {
+			results = append(results, res)
+		}
+		if responded == len(wh.wallets) {
+			break
+		}
 	}
 
-	if res.ErrorDescription != "" {
-		Logger.Error("wallet returned error", zap.String("errorDescription", res.ErrorDescription),
-			zap.Any("reqParams", requestParams))
-		return nil, errors.New(res.ErrorDescription)
+	if len(results) == 0 {
+		return nil, errors.New("no wallet responded successfull within timeout")
 	}
-
-	return &res, nil
+	return results, nil
 }
 
-func (wallet *BrsWallet) GetConstantsInfo() (*ConstantsInfo, error) {
-	requestParams := map[string]string{"requestType": "getConstants"}
-	jsonBytes, err := wallet.request("GET", requestParams)
-	res := ConstantsInfo{}
-
+func (wh *walletHandler) GetMiningInfo() (*MiningInfo, error) {
+	results, err := wh.requestAll("GET", map[string]string{"requestType": "getMiningInfo"})
 	if err != nil {
 		return nil, err
 	}
 
-	err = json.Unmarshal(jsonBytes, &res)
-	if err != nil {
-		Logger.Error("unpacking constantsInfo json failed", zap.Error(err))
-		return nil, err
+	miningInfo := MiningInfo{}
+	for _, res := range results {
+		miningInfoTmp := MiningInfo{}
+		err = json.Unmarshal(res.body, &miningInfoTmp)
+		if err != nil {
+			logJSONUnpackingErr(*res.url, err, res.body)
+			continue
+		}
+
+		if miningInfoTmp.ErrorDescription != "" {
+			logErrDescription(*res.url, miningInfoTmp.ErrorDescription)
+			continue
+		}
+
+		if miningInfoTmp.Height > miningInfo.Height {
+			miningInfo = miningInfoTmp
+		} else if miningInfoTmp.Height < miningInfo.Height {
+			Logger.Warn("wallet lacks behind other wallets",
+				zap.Uint64("height", miningInfoTmp.Height),
+				zap.Uint64("others height", miningInfo.Height))
+		}
 	}
 
-	if res.ErrorDescription != "" {
-		Logger.Error("wallet returned error", zap.String("errorDescription", res.ErrorDescription),
-			zap.Any("reqParams", requestParams))
-		return nil, errors.New(res.ErrorDescription)
+	if miningInfo.Height == 0 {
+		return nil, errors.New("no wallet successfull in getting mining info")
 	}
-
-	return &res, nil
+	return &miningInfo, err
 }
 
-func (wallet *BrsWallet) GetBlockInfo(height uint64) (*BlockInfo, error) {
-	requestParams := map[string]string{
+func (wh *walletHandler) GetBlockInfo(height uint64) (*BlockInfo, error) {
+	results, err := wh.requestAll("GET", map[string]string{
 		"requestType": "getBlock",
-		"height":      strconv.FormatUint(height, 10)}
-	jsonBytes, err := wallet.request("GET", requestParams)
-	res := BlockInfo{}
-
+		"height":      strconv.FormatUint(height, 10)})
 	if err != nil {
 		return nil, err
 	}
 
-	err = json.Unmarshal(jsonBytes, &res)
-	if err != nil {
-		Logger.Error("unpacking blockInfo json failed", zap.Error(err))
-		return nil, err
-	}
+	var blockInfo BlockInfo
+	for _, res := range results {
+		err = json.Unmarshal(res.body, &blockInfo)
+		if err != nil {
+			logJSONUnpackingErr(*res.url, err, res.body)
+			continue
+		}
 
-	if res.ErrorDescription != "" {
-		Logger.Error("wallet returned error", zap.String("errorDescription", res.ErrorDescription),
-			zap.Any("reqParams", requestParams))
-		return nil, errors.New(res.ErrorDescription)
-	}
+		if blockInfo.ErrorDescription != "" {
+			logErrDescription(*res.url, blockInfo.ErrorDescription)
+			continue
+		}
 
-	return &res, nil
+		return &blockInfo, nil
+	}
+	return nil, errors.New("no wallet successfull in getting block info")
 }
 
-func (wallet *BrsWallet) GetRewardRecipientInfo(accountID uint64) (*RewardRecipientInfo, error) {
-	requestParams := map[string]string{
-		"requestType": "getRewardRecipient",
-		"account":     strconv.FormatUint(accountID, 10)}
-	jsonBytes, err := wallet.request("POST", requestParams)
-	res := RewardRecipientInfo{}
-
-	if err != nil {
-		Logger.Error("requesting rewardRecipientInfo failed", zap.Error(err))
-		return nil, err
-	}
-
-	err = json.Unmarshal(jsonBytes, &res)
-	if err != nil {
-		Logger.Error("unpacking rewardRecipientInfo json failed", zap.Error(err))
-		return nil, err
-	}
-
-	if res.ErrorDescription != "" {
-		Logger.Error("wallet returned error", zap.String("errorDescription", res.ErrorDescription),
-			zap.Any("reqParams", requestParams))
-		return nil, errors.New(res.ErrorDescription)
-	}
-
-	return &res, nil
-}
-
-func (wallet *BrsWallet) SubmitNonce(nonce uint64, accountID uint64) (uint64, error) {
-	requestParams := map[string]string{
+func (wh *walletHandler) SubmitNonce(nonce uint64, accountID uint64) (uint64, error) {
+	results, err := wh.requestAll("POST", map[string]string{
 		"requestType":  "submitNonce",
 		"nonce":        strconv.FormatUint(nonce, 10),
 		"accountId":    strconv.FormatUint(accountID, 10),
-		"secretPhrase": wallet.secretPhrase}
-	jsonBytes, err := wallet.request("POST", requestParams)
-
+		"secretPhrase": wh.secretPhrase})
 	if err != nil {
 		return 0, err
 	}
 
 	var nonceInfoResp NonceInfoResponse
-	err = json.Unmarshal(jsonBytes, &nonceInfoResp)
-	if err != nil {
-		Logger.Error("unpacking nonceInfo json failed", zap.Error(err))
-		return 0, err
+	for _, res := range results {
+		err = json.Unmarshal(res.body, &nonceInfoResp)
+		if err != nil {
+			logJSONUnpackingErr(*res.url, err, res.body)
+			continue
+		}
+
+		if nonceInfoResp.Result != "success" {
+			logErrDescription(*res.url, nonceInfoResp.Result)
+			continue
+		}
+
+		return nonceInfoResp.Deadline, nil
 	}
 
-	if nonceInfoResp.Result != "success" {
-		Logger.Error("submitting nonce failed:", zap.String("result", nonceInfoResp.Result))
-		return 0, errors.New(nonceInfoResp.Result)
-	}
-
-	return nonceInfoResp.Deadline, nil
+	return 0, errors.New("no wallet successfull in submitting nonce")
 }
 
-func (wallet *BrsWallet) SendPayment(accountID uint64, amount int64) (uint64, error) {
-	requestParams := map[string]string{
+func (wh *walletHandler) SendPayment(accountID uint64, amount int64) (uint64, error) {
+	params := map[string]string{
 		"requestType":  "sendMoney",
 		"recipient":    strconv.FormatUint(accountID, 10),
 		"deadline":     "1440",
 		"feeNQT":       fmt.Sprint(Cfg.TxFee),
 		"amountNQT":    fmt.Sprint(amount),
-		"secretPhrase": wallet.secretPhrase}
-
-	jsonBytes, err := wallet.request("POST", requestParams)
-	if err != nil {
-		return 0, err
-	}
+		"secretPhrase": wh.secretPhrase}
 
 	var sendMoneyResp SendMoneyResponse
-	err = json.Unmarshal(jsonBytes, &sendMoneyResp)
-	if err != nil {
-		Logger.Error("unpacking sendMoneyResponse json failed", zap.Error(err))
-		return 0, err
-	}
+	for _, w := range wh.wallets {
+		res := w.request("POST", params)
+		if res.err != nil {
+			Logger.Error("send money request failed", zap.String("wallet", *res.url), zap.Error(res.err))
+			continue
+		}
 
-	if sendMoneyResp.TxID == 0 {
-		Logger.Error("transaction failed", zap.String("errorDescription", sendMoneyResp.ErrorDescription))
-		return sendMoneyResp.TxID, errors.New(sendMoneyResp.ErrorDescription)
-	}
+		err := json.Unmarshal(res.body, &sendMoneyResp)
+		if err != nil {
+			logJSONUnpackingErr(*res.url, err, res.body)
+			continue
+		}
+		if sendMoneyResp.TxID == 0 {
+			logErrDescription(*res.url, sendMoneyResp.ErrorDescription)
+			continue
+		}
 
-	return sendMoneyResp.TxID, nil
+		return sendMoneyResp.TxID, nil
+	}
+	return 0, errors.New("no wallet successfull in sending money")
 }
 
-func (wallet *BrsWallet) GetBalance(accountID uint64) (int64, error) {
-	requestParams := map[string]string{
-		"requestType":           "getGuaranteedBalance",
-		"account":               strconv.FormatUint(accountID, 10),
-		"numberOfConfirmations": "1"}
-
-	jsonBytes, err := wallet.request("POST", requestParams)
-	if err != nil {
-		Logger.Error("unpacking balance json failed", zap.Error(err))
-		return 0.0, err
-	}
-
-	var res GetBalanceResponse
-	err = json.Unmarshal(jsonBytes, &res)
-	if err != nil {
-		return 0.0, err
-	}
-
-	if res.ErrorDescription != "" {
-		Logger.Error("wallet returned error", zap.String("errorDescription", res.ErrorDescription),
-			zap.Any("reqParams", requestParams))
-		return 0.0, errors.New(res.ErrorDescription)
-	}
-
-	return res.GuaranteedBalanceNQT, nil
-}
-
-func (wallet *BrsWallet) GetAccountInfo(accountID uint64) (*AccountInfo, error) {
-	requestParams := map[string]string{
+func (wh *walletHandler) GetAccountInfo(accountID uint64) (*AccountInfo, error) {
+	results, err := wh.requestAll("POST", map[string]string{
 		"requestType": "getAccount",
-		"account":     strconv.FormatUint(accountID, 10)}
-
-	jsonBytes, err := wallet.request("POST", requestParams)
-	if err != nil {
-		Logger.Error("unpacking account info json failed", zap.Error(err))
-		return nil, err
-	}
-
-	var res AccountInfo
-	err = json.Unmarshal(jsonBytes, &res)
+		"account":     strconv.FormatUint(accountID, 10)})
 	if err != nil {
 		return nil, err
 	}
 
-	if res.ErrorDescription != "" {
-		Logger.Error("wallet returned error", zap.String("errorDescription", res.ErrorDescription),
-			zap.Any("reqParams", requestParams))
-		return nil, errors.New(res.ErrorDescription)
-	}
+	var accountInfo AccountInfo
+	for _, res := range results {
+		err = json.Unmarshal(res.body, &accountInfo)
+		if err != nil {
+			logJSONUnpackingErr(*res.url, err, res.body)
+			continue
+		}
 
-	return &res, nil
+		if accountInfo.ErrorDescription != "" {
+			logErrDescription(*res.url, accountInfo.ErrorDescription)
+			continue
+		}
+		return &accountInfo, nil
+	}
+	return nil, errors.New("no wallet successfull in gettting account info")
 }
 
-func (wallet *BrsWallet) WonBlock(height uint64, nonce uint64) (bool, *BlockInfo, error) {
+func (wh *walletHandler) WonBlock(height uint64, minerID, nonce uint64) (bool, *BlockInfo, error) {
 	// we also need to check the nonce, to be sure that it was submitted from the pool
-	blockInfo, err := wallet.GetBlockInfo(height)
+	blockInfo, err := wh.GetBlockInfo(height)
 	if err != nil {
 		return false, blockInfo, err
 	}
 
-	rewardRecipientInfo, err := wallet.GetRewardRecipientInfo(blockInfo.GeneratorID)
-	if err != nil {
-		return false, blockInfo, err
-	}
+	Logger.Info("checking if block was one",
+		zap.Uint64("generator", blockInfo.GeneratorID),
+		zap.Uint64("nonce", blockInfo.Nonce),
+		zap.Uint64("expected generator", minerID),
+		zap.Uint64("expected nonce", nonce),
+		zap.Bool("was won", blockInfo.GeneratorID == minerID && blockInfo.Nonce == nonce),
+		zap.Uint64("height", height))
 
-	return rewardRecipientInfo.RewardRecipientID == Cfg.PoolPublicID && blockInfo.Nonce == nonce, blockInfo, nil
+	return blockInfo.GeneratorID == minerID && blockInfo.Nonce == nonce, blockInfo, nil
 }
 
-func (wallet *BrsWallet) IsPoolRewardRecipient(accountID uint64) (bool, error) {
-	rewardRecipientInfo, err := wallet.GetRewardRecipientInfo(accountID)
-	if err != nil {
-		return false, err
-	}
-	return rewardRecipientInfo.RewardRecipientID == Cfg.PoolPublicID, nil
-}
-
-func (wallet *BrsWallet) GetGenerationTime(height uint64) (int32, error) {
-	b1, err := wallet.GetBlockInfo(height - 1)
+func (wh *walletHandler) GetGenerationTime(height uint64) (int32, error) {
+	b1, err := wh.GetBlockInfo(height - 1)
 	if err != nil {
 		return 0, err
 	}
 
-	b2, err := wallet.GetBlockInfo(height)
+	b2, err := wh.GetBlockInfo(height)
 	if err != nil {
 		return 0, err
 	}
 	return b2.TimeStamp - b1.TimeStamp, nil
 }
 
-func (wallet *BrsWallet) GetIncomingMsgsSince(date time.Time, height uint64) (map[uint64]string, error) {
+func (wh *walletHandler) GetIncomingMsgsSince(date time.Time) (map[uint64]string, error) {
 	msgOf := make(map[uint64]string)
-	ts := util.DateToTimeStamp(date)
-	requestParams := map[string]string{
+	ts := burstmath.DateToTimeStamp(date)
+
+	results, err := wh.requestAll("POST", map[string]string{
 		"requestType": "getAccountTransactions",
 		"account":     strconv.FormatUint(Cfg.PoolPublicID, 10),
 		"type":        "1",
 		"subtype":     "0",
-		"timestamp":   strconv.FormatInt(ts, 10)}
+		"timestamp":   strconv.FormatInt(ts, 10)})
 
-	jsonBytes, err := wallet.request("POST", requestParams)
-	if err != nil {
-		Logger.Error("getting account transactions failed", zap.Error(err))
-		return nil, err
-	}
-
-	var res TransactionsInfo
-	err = json.Unmarshal(jsonBytes, &res)
-	if err != nil {
-		Logger.Error("unpacking getAccountTransactions json failed", zap.Error(err))
-		return nil, err
-	}
-
-	if res.ErrorDescription != "" {
-		Logger.Error("wallet returned error", zap.String("errorDescription", res.ErrorDescription),
-			zap.Any("reqParams", requestParams))
-		return nil, errors.New(res.ErrorDescription)
-	}
-
-	for _, transactionInfo := range res.Transactions {
-		// already in blockchain?
-		// if transactionInfo.Height < height {
-		// 	continue
-		// }
-		if transactionInfo.Sender != Cfg.PoolPublicID {
-			msgOf[transactionInfo.Sender] = transactionInfo.Attachment.Msg
+	var txsInfo TransactionsInfo
+	for _, res := range results {
+		err = json.Unmarshal(res.body, &txsInfo)
+		if err != nil {
+			logJSONUnpackingErr(*res.url, err, res.body)
+			continue
 		}
-	}
 
-	return msgOf, nil
+		if txsInfo.ErrorDescription != "" {
+			logErrDescription(*res.url, txsInfo.ErrorDescription)
+			continue
+		}
+
+		for _, txInfo := range txsInfo.Transactions {
+			if txInfo.Sender != Cfg.PoolPublicID {
+				msgOf[txInfo.Sender] = txInfo.Attachment.Msg
+			}
+		}
+		return msgOf, nil
+	}
+	return nil, errors.New("no wallet successfull in getting incoming msgs")
+}
+
+func logJSONUnpackingErr(wallet string, err error, msg []byte) {
+	Logger.Error("unpacking json failed", zap.String("wallet", wallet), zap.Error(err),
+		zap.String("msg", string(msg)))
+}
+
+func logErrDescription(wallet string, errDescription string) {
+	Logger.Error("wallet request returned error", zap.String("wallet", wallet),
+		zap.String("errorDescription", errDescription))
 }

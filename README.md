@@ -83,10 +83,7 @@ db:
     password: "super secret password for pool"
     name: "burstpooldb"
 
-# optional database connection data base of wallet
-# if omitted the pool will directly access
-# the db instead of using the wallet api where
-# possible
+# database connection data base of wallet
 walletDB:
     user: "burstwallet"
     password: "super secret password for wallet"

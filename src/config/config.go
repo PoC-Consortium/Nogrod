@@ -6,6 +6,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	. "logger"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -42,17 +43,19 @@ type Config struct {
 	APIPort                uint     `yaml:"apiPort"`
 	APIListenAddress       string   `yaml:"apiListenAddress"`
 	TMin                   int32    `yaml:"tMin"`
-	PoC2StartHeight        uint64   `yaml:"PoC2StartHeight`
+	PoC2StartHeight        uint64   `yaml:"PoC2StartHeight"`
 	SetNowFee              int64    `yaml:"setNowFee"`
 	SetWeeklyFee           int64    `yaml:"setWeeklyFee"`
 	SetDailyFee            int64    `yaml:"setDailyFee"`
 	SetMinPayoutFee        int64    `yaml:"setMinPayoutFee"`
+	WalletTimeout          int64    `yaml:"walletTimeout"`
+	WalletTimeoutDur       time.Duration
 }
 
 var Cfg Config
 
 func LoadConfig() {
-	Cfg.Version = "v0.9.0"
+	Cfg.Version = "v0.9.5"
 
 	raw, err := ioutil.ReadFile("./config.yaml")
 	if err != nil {
@@ -90,6 +93,14 @@ func validateConfig() {
 
 	if Cfg.DB.User == "" {
 		Logger.Fatal("'dbUser' can't be empty")
+	}
+
+	if Cfg.WalletDB.Name == "" {
+		Logger.Fatal("'walletDB.Name' can't be empty")
+	}
+
+	if Cfg.WalletDB.User == "" {
+		Logger.Fatal("'walletDB.User' can't be empty")
 	}
 
 	if Cfg.FeeAccountID == 0 && Cfg.PoolFeeShare > 0.0 {
@@ -158,5 +169,12 @@ func validateConfig() {
 
 	if Cfg.PoC2StartHeight == 0 {
 		Cfg.PoC2StartHeight = ^uint64(0)
+	}
+
+	if Cfg.WalletTimeout <= 0 {
+		Cfg.WalletTimeoutDur = 5 * time.Second
+		Logger.Info("Using default 5s for Cfg.WalletTimeout")
+	} else {
+		Cfg.WalletTimeoutDur = time.Duration(Cfg.WalletTimeout) * time.Second
 	}
 }
