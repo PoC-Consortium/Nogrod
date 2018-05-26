@@ -330,7 +330,7 @@ func (wh *walletHandler) WonBlock(height uint64, minerID, nonce uint64) (bool, *
 		return false, blockInfo, err
 	}
 
-	Logger.Info("checking if block was one",
+	Logger.Info("checking if block was won",
 		zap.Uint64("generator", blockInfo.GeneratorID),
 		zap.Uint64("nonce", blockInfo.Nonce),
 		zap.Uint64("expected generator", minerID),
