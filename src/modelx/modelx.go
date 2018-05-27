@@ -108,15 +108,15 @@ type WonBlock struct {
 }
 
 func NewModelX(walletHandler wallet.WalletHandler) *Modelx {
-	db, err := sqlx.Connect("mysql", Cfg.DB.User+":"+Cfg.DB.Password+"@/"+Cfg.DB.Name+
-		"?charset=utf8&parseTime=True&loc=Local")
+	db, err := sqlx.Connect("mysql", Cfg.DB.User+":"+Cfg.DB.Password+
+		"@tcp("+Cfg.DB.Host+":"+Cfg.DB.Port+")/"+Cfg.DB.Name+"?charset=utf8&parseTime=True&loc=Local")
 
 	if err != nil {
 		Logger.Fatal("failed to connect to database", zap.Error(err))
 	}
 
-	walletDB, err := sqlx.Connect("mysql", Cfg.WalletDB.User+":"+Cfg.WalletDB.Password+"@/"+
-		Cfg.WalletDB.Name+"?charset=utf8&parseTime=True&loc=Local")
+	walletDB, err := sqlx.Connect("mysql", Cfg.WalletDB.User+":"+Cfg.WalletDB.Password+
+		"@tcp("+Cfg.WalletDB.Host+":"+Cfg.WalletDB.Port+")/"+Cfg.WalletDB.Name+"?charset=utf8&parseTime=True&loc=Local")
 	if err != nil {
 		Logger.Fatal("failed to connect to database", zap.Error(err))
 	}
