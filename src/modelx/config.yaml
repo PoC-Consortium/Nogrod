@@ -9,10 +9,14 @@ txFee: 100000000
 poolFeeShare: 0.0
 deadlineLimit: 10000000000
 walletDB:
+  host: "127.0.0.1"
+  port: 3306
   user: "root"
   password: ""
   name: "testburstwallet"
 db:
+  host: "127.0.0.1"
+  port: 3306
   user: "root"
   password: ""
   name: "testburstpool"

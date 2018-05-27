@@ -79,12 +79,16 @@ deadlineLimit: 10000000000
 
 # database connection data for pool's database
 db:
+    host: "127.0.0.1"
+    port: 3306
     user: "burstpool"
     password: "super secret password for pool"
     name: "burstpooldb"
 
 # database connection data base of wallet
 walletDB:
+    host: "127.0.0.1"
+    port: 3306
     user: "burstwallet"
     password: "super secret password for wallet"
     name: "burstwalletdb"

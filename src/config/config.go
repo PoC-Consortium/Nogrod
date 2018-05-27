@@ -12,6 +12,8 @@ import (
 )
 
 type DBConfig struct {
+	Host     string `yaml:"host"`
+	Port     uint64 `yaml:"port"`
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
 	Name     string `yaml:"name"`
@@ -87,6 +89,14 @@ func validateConfig() {
 		Logger.Fatal("'poolFeeShare' must be between 0.0 and 1.0")
 	}
 
+	if Cfg.DB.Host == "" {
+		Cfg.DB.Host = "127.0.0.1"
+	}
+
+	if Cfg.DB.Port == 0 {
+		Cfg.DB.Port = 3306
+	}
+
 	if Cfg.DB.Name == "" {
 		Logger.Fatal("'dbName' can't be empty")
 	}
@@ -97,6 +107,14 @@ func validateConfig() {
 
 	if Cfg.WalletDB.Name == "" {
 		Logger.Fatal("'walletDB.Name' can't be empty")
+	}
+
+	if Cfg.WalletDB.Host == "" {
+		Cfg.DB.Host = "127.0.0.1"
+	}
+
+	if Cfg.WalletDB.Port == 0 {
+		Cfg.DB.Port = 3306
 	}
 
 	if Cfg.WalletDB.User == "" {
