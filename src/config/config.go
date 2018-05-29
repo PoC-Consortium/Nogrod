@@ -13,7 +13,7 @@ import (
 
 type DBConfig struct {
 	Host     string `yaml:"host"`
-	Port     uint64 `yaml:"port"`
+	Port     uint32 `yaml:"port"`
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
 	Name     string `yaml:"name"`
