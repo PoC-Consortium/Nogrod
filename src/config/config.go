@@ -110,11 +110,11 @@ func validateConfig() {
 	}
 
 	if Cfg.WalletDB.Host == "" {
-		Cfg.DB.Host = "127.0.0.1"
+		Cfg.WalletDB.Host = "127.0.0.1"
 	}
 
 	if Cfg.WalletDB.Port == 0 {
-		Cfg.DB.Port = 3306
+		Cfg.WalletDB.Port = 3306
 	}
 
 	if Cfg.WalletDB.User == "" {
