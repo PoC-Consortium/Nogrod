@@ -8,7 +8,7 @@ GOGET=$(GOCMD) get
 BINARY_NAME=goburstpool
 
 CC=gcc
-CFLAGS=$(OSFLAGS) -Wall -m64 -O3 -mtune=native
+CFLAGS=$(OSFLAGS) -Wall -m64 -O3 -mtune=native -fPIC
 
 .PHONY: libs mocks
 
