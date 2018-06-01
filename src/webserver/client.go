@@ -4,8 +4,8 @@ package webserver
 
 import (
 	"encoding/json"
+	"goburst/rsencoding"
 	. "logger"
-	"rsencoding"
 	"strconv"
 	"strings"
 	"time"
@@ -140,10 +140,10 @@ func (client *Client) addSubscription(msg []byte) {
 	trimmed := strings.TrimPrefix(strings.ToUpper(strings.Trim(string(msg), " ")), "BURST-")
 	accountID, err = strconv.ParseUint(trimmed, 10, 64)
 	if err != nil {
-		accountID = rsencoding.Decode(trimmed)
+		accountID, err = rsencoding.Decode(trimmed)
 	}
 
-	if accountID == 0 {
+	if err != nil {
 		client.QueueMsg(&WebSocketMsg{
 			Type: websocket.TextMessage,
 			Data: []byte(`{"subscriptionFailed":"malformed numeric id or burst address"}`)})
