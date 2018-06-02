@@ -196,3 +196,14 @@ func validateConfig() {
 		Cfg.WalletTimeoutDur = time.Duration(Cfg.WalletTimeout) * time.Second
 	}
 }
+
+func (config DBConfig) DataSourceName(includeDatabase bool) string {
+	dataSourceName := config.User + ":" + config.Password +
+		"@tcp(" + config.Host + ":" + fmt.Sprint(config.Port) + ")/"
+
+	if includeDatabase {
+		dataSourceName = dataSourceName + config.Name + "?charset=utf8&parseTime=True&loc=Local"
+	}
+
+	return dataSourceName
+}

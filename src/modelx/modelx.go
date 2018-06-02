@@ -17,6 +17,9 @@ import (
 	"wallet"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/golang-migrate/migrate"
+	"github.com/golang-migrate/migrate/database/mysql"
+	_ "github.com/golang-migrate/migrate/source/file"
 	"github.com/jmoiron/sqlx"
 
 	"go.uber.org/zap"
@@ -108,17 +111,13 @@ type WonBlock struct {
 }
 
 func NewModelX(walletHandler wallet.WalletHandler) *Modelx {
-	db, err := sqlx.Connect("mysql", Cfg.DB.User+":"+Cfg.DB.Password+
-		"@tcp("+Cfg.DB.Host+":"+fmt.Sprint(Cfg.DB.Port)+")/"+
-		Cfg.DB.Name+"?charset=utf8&parseTime=True&loc=Local")
+	db, err := initializeDatabase()
 
 	if err != nil {
 		Logger.Fatal("failed to connect to database", zap.Error(err))
 	}
 
-	walletDB, err := sqlx.Connect("mysql", Cfg.WalletDB.User+":"+Cfg.WalletDB.Password+
-		"@tcp("+Cfg.WalletDB.Host+":"+fmt.Sprint(Cfg.WalletDB.Port)+")/"+
-		Cfg.WalletDB.Name+"?charset=utf8&parseTime=True&loc=Local")
+	walletDB, err := sqlx.Connect("mysql", Cfg.WalletDB.DataSourceName(true))
 	if err != nil {
 		Logger.Fatal("failed to connect to database", zap.Error(err))
 	}
@@ -151,6 +150,43 @@ func NewModelX(walletHandler wallet.WalletHandler) *Modelx {
 	}
 
 	return &modelx
+}
+
+func initializeDatabase() (*sqlx.DB, error) {
+	tmpdb, err := sqlx.Connect("mysql", Cfg.DB.DataSourceName(false))
+
+	if err != nil {
+		Logger.Fatal("failed to connect to sql server", zap.Error(err))
+	}
+
+	_, err = tmpdb.Exec("CREATE SCHEMA IF NOT EXISTS `" + Cfg.DB.Name + "` DEFAULT CHARACTER SET utf8;")
+	if err != nil {
+		Logger.Fatal("failed to create the database", zap.Error(err))
+	}
+
+	tmpdb.Close()
+
+	db, err := sqlx.Connect("mysql", Cfg.DB.DataSourceName(true))
+	if err != nil {
+		Logger.Fatal("failed to connect to sql server", zap.Error(err))
+	}
+
+	driver, err := mysql.WithInstance(db.DB, &mysql.Config{})
+	if err != nil {
+		Logger.Fatal("failed to initialise migration driver", zap.Error(err))
+	}
+
+	m, err := migrate.NewWithDatabaseInstance("file://migrations", "mysql", driver)
+	if err != nil {
+		Logger.Fatal("failed to initialise migration instance", zap.Error(err))
+	}
+
+	err = m.Up()
+	if err != nil {
+		Logger.Fatal("failed to execute migrations", zap.Error(err))
+	}
+
+	return db, err
 }
 
 func (modelx *Modelx) loadCurrentBlock() bool {
