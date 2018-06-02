@@ -1,0 +1,1 @@
+ALTER TABLE `nonce_submission` DROP FOREIGN KEY `miner_fk`;
