@@ -1,0 +1,1 @@
+ALTER TABLE `block` DROP FOREIGN KEY `nonce_submission_fk`;

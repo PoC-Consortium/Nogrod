@@ -3,3 +3,7 @@
 /cover.out
 *.o
 *.a
+
+\.vscode/
+
+*.code-workspace

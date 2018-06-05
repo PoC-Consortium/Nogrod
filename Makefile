@@ -39,6 +39,8 @@ deps:
 	@GOPATH=$(GOPATH) $(GOGET) github.com/klauspost/cpuid
 	@GOPATH=$(GOPATH) $(GOGET) google.golang.org/grpc
 	@GOPATH=$(GOPATH) $(GOGET) golang.org/x/net/context
+	@GOPATH=$(GOPATH) $(GOGET) github.com/golang-migrate/migrate
+	@GOPATH=$(GOPATH) $(GOGET) github.com/golang-migrate/migrate/database/mysql
 mocks:
 	@GOPATH=$(GOPATH) mockery -name=WalletHandler -dir=./src/wallet/
 	mv mocks src/mocks

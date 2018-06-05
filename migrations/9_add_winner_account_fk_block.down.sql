@@ -1,0 +1,1 @@
+ALTER TABLE `block` DROP FOREIGN KEY `winner_account_fk`;

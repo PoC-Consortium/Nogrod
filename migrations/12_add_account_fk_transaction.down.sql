@@ -1,0 +1,1 @@
+ALTER TABLE `transaction` DROP FOREIGN KEY `account_fk`;
