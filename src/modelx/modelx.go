@@ -177,8 +177,23 @@ func initializeDatabase() (*sqlx.DB, error) {
 		Logger.Fatal("failed to initialise migration instance", zap.Error(err))
 	}
 
-	err = m.Up()
-	if err != nil {
+	version, dirty, versionErr := m.Version()
+
+	if versionErr != nil && versionErr != migrate.ErrNilVersion {
+		Logger.Fatal("failed to get migration version", zap.Error(err))
+	}
+
+	if dirty {
+		Logger.Warn("Forcing migration", zap.Uint("version", version))
+		err = m.Force(int(version))
+
+		if err != nil {
+			Logger.Fatal("failed to force execute migration", zap.Error(err))
+		}
+	}
+
+	migrateErr := m.Up()
+	if migrateErr != nil && migrateErr != migrate.ErrNoChange {
 		Logger.Fatal("failed to execute migrations", zap.Error(err))
 	}
 
