@@ -4,10 +4,15 @@ package modelx
 
 import (
 	. "config"
+	"container/list"
+	"encoding/json"
 	"math"
 	"sync"
 	"sync/atomic"
+	"time"
 )
+
+var Cache *cache
 
 type cache struct {
 	miners              sync.Map
@@ -19,10 +24,29 @@ type cache struct {
 	rewardRecipient   map[uint64]bool
 	rewardRecipientMu sync.RWMutex
 
+	slowBlocks *blocks
+	fastBlocks *blocks
+
 	alphas []float64
+
+	miningInfoJSON atomic.Value
+	roundInfo      atomic.Value
 }
 
-var Cache *cache
+type blocks struct {
+	heights *list.List
+	index   map[uint64]*list.Element
+	maxLen  int
+	sync.RWMutex
+}
+
+type RoundInfo struct {
+	Scoop      uint32
+	BaseTarget uint64
+	Height     uint64
+	GenSig     []byte
+	RoundStart time.Time
+}
 
 func InitCache() {
 	c := cache{}
@@ -31,7 +55,56 @@ func InitCache() {
 	c.StorePoolCap(0.0)
 	c.rewardRecipient = make(map[uint64]bool)
 	c.computeAlphas(Cfg.NAVG, Cfg.NMin)
+	c.slowBlocks = newBlocks(Cfg.NAVG)
+	c.fastBlocks = newBlocks(Cfg.NAVG)
 	Cache = &c
+}
+
+func newBlocks(maxLen int) *blocks {
+	if maxLen <= 0 {
+		panic("maxLen must be bigger 0")
+	}
+	return &blocks{
+		maxLen:  maxLen,
+		heights: list.New(),
+		index:   make(map[uint64]*list.Element)}
+}
+
+func (blocks *blocks) add(height uint64) uint64 {
+	// If the height is already cached we won't add id
+	// If we insert a new element, we also have to take care of removing
+	// old heights if cache is full
+	blocks.Lock()
+	if _, exists := blocks.index[height]; exists {
+		blocks.Unlock()
+		return 0
+	}
+	for e := blocks.heights.Back(); e != nil; e = e.Prev() {
+		curHeight := e.Value.(uint64)
+		if curHeight < height {
+			blocks.index[height] = blocks.heights.InsertAfter(height, e)
+			if blocks.maxLen < blocks.heights.Len() {
+				oldHeight := blocks.heights.Remove(blocks.heights.Front()).(uint64)
+				delete(blocks.index, oldHeight)
+				blocks.Unlock()
+				return oldHeight
+			}
+			blocks.Unlock()
+			return 0
+		}
+	}
+	if blocks.maxLen > blocks.heights.Len() {
+		blocks.index[height] = blocks.heights.PushFront(height)
+	}
+	blocks.Unlock()
+	return 0
+}
+
+func (blocks *blocks) exists(height uint64) bool {
+	blocks.RLock()
+	_, exists := blocks.index[height]
+	blocks.RUnlock()
+	return exists
 }
 
 func (c *cache) StorePoolCap(cap float64) {
@@ -51,7 +124,27 @@ func (c *cache) GetMinerCount() int32 {
 }
 
 func (c *cache) StoreCurrentBlock(b Block) {
+	miningInfoBytes, _ := json.Marshal(map[string]interface{}{
+		"baseTarget":          b.BaseTarget,
+		"generationSignature": b.GenerationSignature,
+		"height":              b.Height,
+		"targetDeadline":      Cfg.DeadlineLimit})
+	c.roundInfo.Store(RoundInfo{
+		Scoop:      b.Scoop,
+		BaseTarget: b.BaseTarget,
+		Height:     b.Height,
+		GenSig:     b.GenerationSignatureBytes,
+		RoundStart: b.Created})
+	c.miningInfoJSON.Store(miningInfoBytes)
 	c.currentBlock.Store(b)
+}
+
+func (c *cache) GetMiningInfoJSON() []byte {
+	return c.miningInfoJSON.Load().([]byte)
+}
+
+func (c *cache) GetRoundInfo() RoundInfo {
+	return c.roundInfo.Load().(RoundInfo)
 }
 
 func (c *cache) CurrentBlock() Block {
@@ -131,4 +224,25 @@ func (c *cache) computeAlphas(nAvg int, nMin int) {
 		}
 	}
 	c.alphas[nAvg-1] = 1.0
+}
+
+func (c *cache) WasSlowBlock(height uint64) (bool, bool) {
+	if c.slowBlocks.exists(height) {
+		return true, true
+	}
+	if c.fastBlocks.exists(height) {
+		return false, true
+	}
+	return false, false
+}
+
+func (c *cache) AddSlowBlock(height uint64) uint64 {
+	return c.slowBlocks.add(height)
+}
+
+func (c *cache) AddBlock(height uint64, generationTime int32) uint64 {
+	if generationTime < Cfg.TMin {
+		return c.fastBlocks.add(height)
+	}
+	return c.slowBlocks.add(height)
 }

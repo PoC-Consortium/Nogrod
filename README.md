@@ -16,21 +16,9 @@
 
 ## Setup
 
-1. Create database
+1. Edit config (see config section for settings)
 
-``` shellsession
-echo "create database `<dbname>`" | mysql -u <user> -p
-```
-
-2. Import schema
-
-``` shellsession
-mysql -u <user> <dbname> < schema.sql
-```
-
-4. Edit config (see config section for settings)
-
-5. Run make
+2. Run make
 
 ``` shellsession
 make
@@ -186,5 +174,9 @@ For
 - patience in explaining the system on discord
 - countless statistical analyses
 you may thank **Herscht**: **BURST-HWKA-CTBB-J69E-79YHU**
+
+For
+- database migration, easier deployment and more flexible configuration
+you may thank **ymijorski**: **BURST-SGLT-GEKB-AMP2-GCFT8**
 
 For the implementation you may thank **bold**: **BURST-8V9Y-58B4-RVWP-8HQAV**

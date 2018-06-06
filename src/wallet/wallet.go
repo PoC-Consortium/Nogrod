@@ -4,6 +4,7 @@ package wallet
 
 import (
 	. "config"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -98,21 +99,31 @@ type WithErrorReponse struct {
 	ErrorDescription string `json:"errorDescription,omitempty"`
 }
 
-func NewWalletHandler(walletURLS []string, secretPhrase string, timeout time.Duration) WalletHandler {
+func NewWalletHandler(walletURLS []string, secretPhrase string, timeout time.Duration, trustAll bool) WalletHandler {
 	wallets := make([]*wallet, len(walletURLS))
 	for i, url := range walletURLS {
-		wallets[i] = newWallet(url, timeout)
+		wallets[i] = newWallet(url, timeout, trustAll)
 	}
 	return &walletHandler{
 		wallets:      wallets,
 		secretPhrase: secretPhrase}
 }
 
-func newWallet(url string, timeout time.Duration) *wallet {
+func newWallet(url string, timeout time.Duration, trustAll bool) *wallet {
+	var client *http.Client
+	if trustAll {
+		client = &http.Client{
+			Timeout: timeout,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
+
+	} else {
+		client = &http.Client{Timeout: timeout}
+	}
 	return &wallet{
 		url:     url,
 		baseURL: url + "/burst",
-		client:  &http.Client{Timeout: timeout}}
+		client:  client}
 }
 
 func (w *wallet) err(err error) *reqResult {

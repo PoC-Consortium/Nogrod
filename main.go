@@ -14,7 +14,8 @@ func main() {
 	LoadConfig()
 	modelx.InitCache()
 
-	walletHandler := wallet.NewWalletHandler(Cfg.WalletUrls, Cfg.SecretPhrase, Cfg.WalletTimeoutDur)
+	walletHandler := wallet.NewWalletHandler(Cfg.WalletUrls, Cfg.SecretPhrase, Cfg.WalletTimeoutDur,
+		Cfg.TrustAllWalletCerts)
 	modelx := modelx.NewModelX(walletHandler)
 
 	webServer := webserver.NewWebServer(modelx)

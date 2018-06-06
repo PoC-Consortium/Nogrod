@@ -10,11 +10,19 @@ BINARY_NAME=goburstpool
 CC=gcc
 CFLAGS=$(OSFLAGS) -Wall -m64 -O3 -mtune=native -fPIC
 
-.PHONY: libs mocks
+.PHONY: libs mocks protos
 
 start:
 	make build
 	./$(BINARY_NAME)
+protos:
+	mkdir -p src/nodecom
+	mkdir -p src/api
+	protoc --go_out=plugins=grpc:src/ protos/nodecom.proto
+	protoc --go_out=plugins=grpc:src/ protos/api.proto
+	mv src/protos/nodecom.pb.go src/nodecom/
+	mv src/protos/api.pb.go src/api/
+	rm -r src/protos
 api:
 	protoc --go_out=plugins=grpc:src/ api/api.proto
 build: deps libs

@@ -3,6 +3,7 @@
 package config
 
 import (
+	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	. "logger"
@@ -22,6 +23,7 @@ type DBConfig struct {
 type Config struct {
 	Version                string
 	BlockHeightPayoutDelay uint64   `yaml:"blockHeightPayoutDelay"`
+	PayoutDelay            uint64   `yaml:"payoutDelay"`
 	SecretPhrase           string   `yaml:"secretPhrase"`
 	WalletUrls             []string `yaml:"walletUrls"`
 	PoolPublicID           uint64   `yaml:"poolPublicId"`
@@ -44,6 +46,8 @@ type Config struct {
 	NMin                   int      `yaml:"nMin"`
 	APIPort                uint     `yaml:"apiPort"`
 	APIListenAddress       string   `yaml:"apiListenAddress"`
+	NodePort               uint     `yaml:"nodePort"`
+	NodeListenAddress      string   `yaml:"ndeListenAddress"`
 	TMin                   int32    `yaml:"tMin"`
 	PoC2StartHeight        uint64   `yaml:"PoC2StartHeight"`
 	SetNowFee              int64    `yaml:"setNowFee"`
@@ -52,6 +56,8 @@ type Config struct {
 	SetMinPayoutFee        int64    `yaml:"setMinPayoutFee"`
 	WalletTimeout          int64    `yaml:"walletTimeout"`
 	WalletTimeoutDur       time.Duration
+	TrustAllWalletCerts    bool   `yaml:"trustAllWalletCerts"`
+	NodeComCert            string `yaml:"nodeComCert"`
 }
 
 var Cfg Config

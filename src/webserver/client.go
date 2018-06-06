@@ -141,9 +141,12 @@ func (client *Client) addSubscription(msg []byte) {
 	accountID, err = strconv.ParseUint(trimmed, 10, 64)
 	if err != nil {
 		accountID, err = rsencoding.Decode(trimmed)
+		if err != nil {
+			return
+		}
 	}
 
-	if err != nil {
+	if accountID == 0 {
 		client.QueueMsg(&WebSocketMsg{
 			Type: websocket.TextMessage,
 			Data: []byte(`{"subscriptionFailed":"malformed numeric id or burst address"}`)})

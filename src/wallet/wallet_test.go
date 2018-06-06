@@ -20,7 +20,7 @@ type walletTestSuite struct {
 
 func (suite *walletTestSuite) SetupSuite() {
 	LoadConfig()
-	suite.wh = NewWalletHandler(walletUrls, secretPhrase, time.Second*10).(*walletHandler)
+	suite.wh = NewWalletHandler(walletUrls, secretPhrase, time.Second*10, false).(*walletHandler)
 	assert.Equal(suite.T(), secretPhrase, suite.wh.secretPhrase, "secretPhrase isn't intialized correctly")
 	assert.Equal(suite.T(), 1, len(suite.wh.wallets), "wallet count not ok")
 }
