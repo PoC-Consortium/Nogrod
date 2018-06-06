@@ -1,6 +1,6 @@
 CALL `proc_foreign_key_not_exists`(
-	'block', 
-    'winner_account_fk', 
+	'block',
+    'winner_account_fk',
     '
 ALTER TABLE `block`
 ADD CONSTRAINT `winner_account_fk`

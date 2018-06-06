@@ -1,6 +1,6 @@
 CALL `proc_foreign_key_not_exists`(
-	'miner', 
-    'miner_account_fk', 
+	'miner',
+    'miner_account_fk',
     '
 ALTER TABLE `miner`
 ADD CONSTRAINT `miner_account_fk`

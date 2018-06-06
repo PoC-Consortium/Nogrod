@@ -1,6 +1,6 @@
 CALL `proc_foreign_key_not_exists`(
-	'transaction', 
-    'account_fk', 
+	'transaction',
+    'account_fk',
     '
 ALTER TABLE `transaction`
 ADD CONSTRAINT `account_fk`

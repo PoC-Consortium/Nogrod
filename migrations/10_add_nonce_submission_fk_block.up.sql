@@ -1,6 +1,6 @@
 CALL `proc_foreign_key_not_exists`(
-	'block', 
-    'nonce_submission_fk', 
+	'block',
+    'nonce_submission_fk',
     '
 ALTER TABLE `block`
 ADD CONSTRAINT `nonce_submission_fk`
