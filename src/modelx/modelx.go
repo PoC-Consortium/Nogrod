@@ -4,8 +4,8 @@ package modelx
 
 import (
 	. "config"
-	"container/list"
 	"database/sql"
+	"errors"
 	"fmt"
 	"goburst/burstmath"
 	"goburst/rsencoding"
@@ -41,7 +41,7 @@ type Miner struct {
 
 	CurrentDeadlineParams *DeadlineParams
 
-	DeadlinesParams     *list.List
+	DeadlinesParams     map[uint64]*DeadlineParams
 	WeightedDeadlineSum float64
 
 	PayoutDetail string `db:"account.payout_detail"`
@@ -86,18 +86,17 @@ type Modelx struct {
 	walletDB      *sqlx.DB
 	walletHandler wallet.WalletHandler
 
-	newBlockMu sync.RWMutex
-
-	slowBlockHeights *list.List
+	newBlockMu sync.Mutex
 }
 
 type NonceSubmission struct {
-	Nonce    uint64
-	Deadline uint64
-	MinerID  uint64 `db:"miner.id"`
-	Height   uint64 `db:"block.height"`
-	Name     string `db:"account.name"`
-	Address  string `db:"account.address"`
+	Nonce      uint64
+	Deadline   uint64
+	MinerID    uint64    `db:"miner.id"`
+	Height     uint64    `db:"block.height"`
+	Name       string    `db:"account.name"`
+	Address    string    `db:"account.address"`
+	RoundStart time.Time `db:"block.created"`
 }
 
 type WonBlock struct {
@@ -123,10 +122,9 @@ func NewModelX(walletHandler wallet.WalletHandler) *Modelx {
 	}
 
 	modelx := Modelx{
-		db:               db,
-		walletDB:         walletDB,
-		walletHandler:    walletHandler,
-		slowBlockHeights: list.New()}
+		db:            db,
+		walletDB:      walletDB,
+		walletHandler: walletHandler}
 
 	if Cfg.FeeAccountID != 0 {
 		modelx.createFeeAccount()
@@ -141,12 +139,10 @@ func NewModelX(walletHandler wallet.WalletHandler) *Modelx {
 			Logger.Fatal("getting inital mining info failed", zap.Error(err))
 		}
 
-		block, err := modelx.NewBlock(miningInfo.BaseTarget, miningInfo.GenerationSignature,
-			miningInfo.Height)
+		err = modelx.NewBlock(miningInfo.BaseTarget, miningInfo.GenerationSignature, miningInfo.Height)
 		if err != nil {
 			Logger.Fatal("creating first block failed", zap.Error(err))
 		}
-		Cache.StoreCurrentBlock(block)
 	}
 
 	return &modelx
@@ -227,8 +223,19 @@ func (modelx *Modelx) cacheMiners() {
 		return
 	}
 
-	for _, h := range slowBlockHeights {
-		modelx.slowBlockHeights.PushFront(h)
+	var fastBlockHeights []uint64
+	sql = `SELECT height FROM block WHERE
+                 generation_time < ?  AND
+                 height > (SELECT height FROM block ORDER BY height DESC LIMIT 1) - ?`
+	err = modelx.db.Select(&fastBlockHeights, sql, Cfg.TMin, Cfg.NAVG)
+
+	if len(slowBlockHeights) > 1 {
+		for _, h := range slowBlockHeights[1:] {
+			Cache.AddBlock(h, Cfg.TMin+1)
+		}
+	}
+	for _, h := range fastBlockHeights {
+		Cache.AddBlock(h, 0)
 	}
 
 	query, args, err := sqlx.In(`SELECT
@@ -269,7 +276,7 @@ func (modelx *Modelx) cacheMiners() {
 		miner := Cache.GetMiner(sds[i].ID)
 		if miner == nil {
 			miner = &sds[i].Miner
-			miner.DeadlinesParams = list.New()
+			miner.DeadlinesParams = make(map[uint64]*DeadlineParams)
 			Cache.LoadOrStoreMiner(miner)
 		}
 
@@ -277,11 +284,14 @@ func (modelx *Modelx) cacheMiners() {
 			Height:     sds[i].Height,
 			BaseTarget: sds[i].BaseTarget,
 			Deadline:   sds[i].Deadline}
-		if sds[i].Height == currentHeight {
-			miner.CurrentDeadlineParams = dp
-		} else {
-			miner.DeadlinesParams.PushBack(dp)
+
+		if sds[i].Height != currentHeight {
+			miner.DeadlinesParams[sds[i].Height] = dp
 			miner.WeightedDeadlineSum += weightDeadline(dp.Deadline, dp.BaseTarget)
+		}
+
+		if sds[i].Height > miner.CurrentBlockHeight() {
+			miner.CurrentDeadlineParams = dp
 		}
 	}
 }
@@ -369,7 +379,7 @@ func (modelx *Modelx) getMinerFromDB(accountID uint64) *Miner {
 		return nil
 	}
 
-	miner.DeadlinesParams = list.New()
+	miner.DeadlinesParams = make(map[uint64]*DeadlineParams)
 
 	return &miner
 }
@@ -382,7 +392,8 @@ func (modelx *Modelx) GetBestNonceSubmissionOnBlock(height uint64) (*NonceSubmis
                   miner.id "miner.id",
                   COALESCE(account.name, '') "account.name",
                   account.address "account.address",
-                  block.height "block.height"
+                  block.height "block.height",
+                  block.created "block.created"
                 FROM block
                   JOIN nonce_submission ON block.best_nonce_submission_id = nonce_submission.id
                   JOIN miner ON miner.id = nonce_submission.miner_id
@@ -397,69 +408,83 @@ func (modelx *Modelx) GetBestNonceSubmissionOnBlock(height uint64) (*NonceSubmis
 	return &ns, nil
 }
 
-func (modelx *Modelx) NewBlock(baseTarget uint64, genSig string, height uint64) (Block, error) {
-	var newBlock Block
+func (modelx *Modelx) NewBlock(baseTarget uint64, genSig string, height uint64) error {
+	modelx.newBlockMu.Lock()
+	defer modelx.newBlockMu.Unlock()
+
+	if _, exists := Cache.WasSlowBlock(height); exists {
+		return nil
+	}
+
+	currentBlock := Cache.CurrentBlock()
+	if currentBlock.Height != uint64(0) && height < currentBlock.Height-uint64(Cfg.NAVG) {
+		return errors.New("bock too old")
+	}
 
 	genSigBytes, err := burstmath.DecodeGeneratorSignature(genSig)
 	if err != nil {
-		return newBlock, err
+		return err
 	}
 
-	wasSlowBlock := true
-	oldBlock := Cache.CurrentBlock()
-	if oldBlock.Height != 0 {
-		generationTime, err := modelx.getGenerationTime(oldBlock.Height)
+	var removedHeight uint64
+	var newBlock Block
+	var generationTime int32
+	if height > currentBlock.Height {
+		generationTime, err = modelx.getGenerationTime(currentBlock.Height)
 		if err != nil {
-			Logger.Error("failed to get generationTime", zap.Error(err))
-			return newBlock, err
+			Logger.Error("could not get generation time", zap.Uint64("height", currentBlock.Height))
+		} else {
+			modelx.db.MustExec("UPDATE block SET generation_time = ? WHERE height = ?",
+				generationTime, currentBlock.Height)
+			removedHeight = Cache.AddBlock(currentBlock.Height, generationTime)
+		}
+		newBlock = Block{
+			Height:                   height,
+			BaseTarget:               baseTarget,
+			Scoop:                    burstmath.CalcScoop(height, genSigBytes),
+			GenerationSignature:      genSig,
+			GenerationSignatureBytes: genSigBytes,
+			Created:                  time.Now()}
+	} else {
+		generationTime, err = modelx.getGenerationTime(height)
+		if err != nil {
+			Logger.Error("could not get generation time", zap.Uint64("height", currentBlock.Height))
+			generationTime = 4 * 60 // fallback value of 4 minutes
 		}
 
-		modelx.db.MustExec("UPDATE block SET generation_time = ? WHERE height = ?",
-			generationTime, oldBlock.Height)
-
-		wasSlowBlock = generationTime >= Cfg.TMin
-		if wasSlowBlock {
-			modelx.slowBlockHeights.PushBack(oldBlock.Height)
-			for modelx.slowBlockHeights.Len() > Cfg.NAVG {
-				modelx.slowBlockHeights.Remove(modelx.slowBlockHeights.Front())
-			}
-		}
+		removedHeight = Cache.AddBlock(height, generationTime)
 	}
 
-	block := Block{
-		Height:                   height,
-		BaseTarget:               baseTarget,
-		Scoop:                    burstmath.CalcScoop(height, genSigBytes),
-		GenerationSignature:      genSig,
-		GenerationSignatureBytes: genSigBytes,
-		Created:                  time.Now()}
-
-	sql := `INSERT INTO block (height, base_target, scoop, generation_signature, created) VALUES (?, ?, ?, ?, ?)`
-	modelx.db.MustExec(sql, block.Height, block.BaseTarget, block.Scoop, block.GenerationSignature, block.Created)
+	modelx.db.MustExec(`INSERT
+	        INTO block (height, base_target, scoop, generation_signature, created, generation_time)
+	        VALUES (?, ?, ?, ?, ?, ?)`,
+		height, baseTarget, burstmath.CalcScoop(height, genSigBytes), genSig,
+		time.Now(), generationTime)
 
 	Cache.MinerRange(func(key, value interface{}) bool {
 		miner := value.(*Miner)
+
 		miner.Lock()
-		defer miner.Unlock()
-
-		if miner.CurrentBlockHeight() < block.Height-Cfg.InactiveAfterXBlocks {
-			Cache.DeleteMiner(key.(uint64))
-		} else if modelx.slowBlockHeights.Len() > 0 {
-			miner.removeOldDeadlineParams(modelx.slowBlockHeights.Front().Value.(uint64))
-		}
-
-		if wasSlowBlock {
+		if slow, _ := Cache.WasSlowBlock(miner.CurrentBlockHeight()); slow {
 			miner.addDeadlineParams()
 		}
+		if removedHeight != 0 {
+			miner.removeDeadlineParams(removedHeight)
+		}
+		if miner.CurrentBlockHeight() < height-Cfg.InactiveAfterXBlocks {
+			Cache.DeleteMiner(key.(uint64))
+		}
+		miner.Unlock()
 
 		return true
 	})
 
-	modelx.CacheRewardRecipients()
+	if newBlock.Height != 0 {
+		modelx.CacheRewardRecipients()
+		Cache.StoreCurrentBlock(newBlock)
+	}
 
-	Cache.StoreCurrentBlock(block)
-
-	return block, nil
+	return nil
 }
 
 func (modelx *Modelx) createMiner(accountID uint64) (*Miner, error) {
@@ -499,7 +524,7 @@ func (modelx *Modelx) createMiner(accountID uint64) (*Miner, error) {
 		ID:              accountID,
 		Address:         address,
 		Name:            name,
-		DeadlinesParams: list.New()}, nil
+		DeadlinesParams: make(map[uint64]*DeadlineParams)}, nil
 }
 
 func (modelx *Modelx) FirstOrCreateMiner(accountID uint64) *Miner {
@@ -519,7 +544,7 @@ func (modelx *Modelx) FirstOrCreateMiner(accountID uint64) *Miner {
 		}
 	}
 
-	miner.DeadlinesParams = list.New()
+	miner.DeadlinesParams = make(map[uint64]*DeadlineParams)
 
 	// if already exists at this point we rather use the existing
 	miner = Cache.LoadOrStoreMiner(miner)
@@ -527,16 +552,22 @@ func (modelx *Modelx) FirstOrCreateMiner(accountID uint64) *Miner {
 	return miner
 }
 
+func (miner *Miner) removeDeadlineParams(height uint64) {
+	if dp, exists := miner.DeadlinesParams[height]; exists {
+		miner.WeightedDeadlineSum -= weightDeadline(dp.Deadline, dp.BaseTarget)
+		delete(miner.DeadlinesParams, height)
+	}
+}
+
 func (miner *Miner) addDeadlineParams() {
 	if miner.CurrentDeadlineParams == nil {
 		return
 	}
 
-	// is this a new submission
-	back := miner.DeadlinesParams.Back()
-	if back == nil || back.Value.(*DeadlineParams).Height < miner.CurrentBlockHeight() {
-		dp := *miner.CurrentDeadlineParams
-		miner.DeadlinesParams.PushBack(&dp)
+	// is this a new submission?
+	dp := miner.CurrentDeadlineParams
+	if _, exists := miner.DeadlinesParams[dp.Height]; !exists {
+		miner.DeadlinesParams[dp.Height] = miner.CurrentDeadlineParams
 		miner.WeightedDeadlineSum += weightDeadline(dp.Deadline, dp.BaseTarget)
 	}
 }
@@ -544,8 +575,6 @@ func (miner *Miner) addDeadlineParams() {
 func (miner *Miner) CurrentBlockHeight() uint64 {
 	if miner.CurrentDeadlineParams != nil {
 		return miner.CurrentDeadlineParams.Height
-	} else if e := miner.DeadlinesParams.Back(); e != nil {
-		return e.Value.(*DeadlineParams).Height
 	}
 	return 0
 }
@@ -557,30 +586,17 @@ func (miner *Miner) CurrentDeadline() uint64 {
 	return miner.CurrentDeadlineParams.Deadline
 }
 
-func (miner *Miner) removeOldDeadlineParams(heightLimit uint64) {
-	for e := miner.DeadlinesParams.Front(); e != nil; e = e.Next() {
-		d := e.Value.(*DeadlineParams)
-		// because of uints we actually should check if currentHeight is smaller
-		// than Cfg.NAVG, but we are at a sufficient block height already...
-		if d.Height < heightLimit {
-			miner.WeightedDeadlineSum -= weightDeadline(d.Deadline, d.BaseTarget)
-			miner.DeadlinesParams.Remove(e)
-		} else {
-			return
-		}
-	}
-}
-
 func (miner *Miner) CalculateEEPS() float64 {
-	return eeps(miner.DeadlinesParams.Len(), miner.WeightedDeadlineSum)
+	return eeps(len(miner.DeadlinesParams), miner.WeightedDeadlineSum)
 }
 
-func (modelx *Modelx) UpdateOrCreateNonceSubmission(miner *Miner, height, deadline, nonce, baseTarget uint64) error {
+func (modelx *Modelx) UpdateOrCreateNonceSubmission(miner *Miner, height, deadline, nonce, baseTarget uint64,
+	genSig string) error {
 	miner.dbMu.Lock()
 	defer miner.dbMu.Unlock()
+
 	if miner.CurrentBlockHeight() == height {
-		// Check if there was a better deadline submitted by this miner during this round
-		if miner.CurrentDeadline() < deadline {
+		if miner.CurrentDeadline() <= deadline {
 			return nil
 		}
 
@@ -597,6 +613,44 @@ func (modelx *Modelx) UpdateOrCreateNonceSubmission(miner *Miner, height, deadli
 		return nil
 	}
 
+	blockExists, slow := Cache.WasSlowBlock(height)
+	if blockExists && !slow {
+		return nil
+	}
+
+	if dp, exists := miner.DeadlinesParams[height]; exists {
+		if dp.Deadline <= deadline {
+			return nil
+		}
+
+		sql := "UPDATE nonce_submission SET deadline = ?, nonce = ? WHERE miner_id = ? AND block_height = ?"
+		_, err := modelx.db.Exec(sql, deadline, nonce, miner.ID, height)
+		if err != nil {
+			return err
+		}
+
+		miner.Lock()
+		miner.WeightedDeadlineSum += weightDeadline(deadline, baseTarget) -
+			weightDeadline(dp.Deadline, dp.BaseTarget)
+		dp.BaseTarget = baseTarget
+		dp.Deadline = deadline
+		dp.Height = height
+		miner.Unlock()
+
+		return nil
+	}
+
+	if !blockExists {
+		ri := Cache.GetRoundInfo()
+
+		if ri.Height != height {
+			err := modelx.NewBlock(baseTarget, genSig, height)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	sql := "INSERT INTO nonce_submission (miner_id, block_height, deadline, nonce) VALUES (?, ?, ?, ?)"
 	_, err := modelx.db.Exec(sql, miner.ID, height, deadline, nonce)
 	if err != nil {
@@ -604,10 +658,16 @@ func (modelx *Modelx) UpdateOrCreateNonceSubmission(miner *Miner, height, deadli
 	}
 
 	miner.Lock()
-	miner.CurrentDeadlineParams = &DeadlineParams{
-		Height:     height,
+	dp := &DeadlineParams{
 		BaseTarget: baseTarget,
-		Deadline:   deadline}
+		Deadline:   deadline,
+		Height:     height}
+	if height > miner.CurrentBlockHeight() {
+		miner.CurrentDeadlineParams = dp
+	} else {
+		miner.WeightedDeadlineSum += weightDeadline(deadline, baseTarget)
+		miner.DeadlinesParams[height] = dp
+	}
 	miner.Unlock()
 
 	return nil
@@ -630,11 +690,24 @@ func (modelx *Modelx) RewardBlocks() {
 		MinerID uint64 `db:"nonce_submission.miner_id"`
 	}
 
+	payoutDelay := time.Now().Add(-time.Duration(Cfg.PayoutDelay) * time.Second)
+	payoutHeightDelay := currentBlock.Height - Cfg.BlockHeightPayoutDelay
+
+	modelx.db.MustExec(`UPDATE block SET best_nonce_submission_id =
+                              (SELECT id FROM nonce_submission
+                               WHERE nonce_submission.block_height = block.height ORDER BY deadline ASC LIMIT 1)
+                            WHERE winner_verified = 0 AND height <= ? AND created <= ?`,
+		payoutHeightDelay,
+		payoutDelay)
+
 	modelx.db.MustExec(`UPDATE block SET winner_verified = 1
                             WHERE
                               best_nonce_submission_id IS NULL and
-                              winner_verified = 0 and
-                              height <= ?`, currentBlock.Height-Cfg.BlockHeightPayoutDelay)
+                              winner_verified = 0 AND
+                              height <= ? AND
+                              created <= ?`,
+		payoutHeightDelay,
+		payoutDelay)
 
 	var blockWonInfos []BlockWonInfo
 	sql := `SELECT
@@ -644,10 +717,14 @@ func (modelx *Modelx) RewardBlocks() {
                   nonce_submission.nonce "nonce_submission.nonce"
                 FROM block
                   JOIN nonce_submission ON nonce_submission.id = block.best_nonce_submission_id
-                WHERE height <= ? AND winner_verified = 0 AND NOT block.best_nonce_submission_id IS NULL
+                WHERE
+                  height <= ? AND
+                  winner_verified = 0 AND
+                  NOT block.best_nonce_submission_id IS NULL AND
+                  created <= ?
                   ORDER BY height ASC`
 
-	err := modelx.db.Select(&blockWonInfos, sql, currentBlock.Height-Cfg.BlockHeightPayoutDelay)
+	err := modelx.db.Select(&blockWonInfos, sql, payoutHeightDelay, payoutDelay)
 	if err != nil {
 		Logger.Error("failed to fetch blocks without winner verified", zap.Error(err))
 		return
@@ -969,7 +1046,8 @@ func (modelx *Modelx) CacheRewardRecipients() {
 func (modelx *Modelx) GetAVGNetDiff(n uint) float64 {
 	var netDiff float64
 	err := modelx.db.Get(&netDiff,
-		"SELECT 18325193796 / AVG(base_target) FROM block ORDER BY height DESC LIMIT ?", n)
+		`SELECT 18325193796 / AVG(blocks.base_target)
+                 FROM (SELECT base_target FROM block ORDER BY height DESC LIMIT ?) blocks`, n)
 	if err != nil {
 		Logger.Error("failed to get netDiff", zap.Error(err))
 		return 250000.0
@@ -1052,9 +1130,8 @@ func (modelx *Modelx) SetMinPayout(msgOf map[uint64]string) {
 					continue
 				}
 
-			} else {
-				cost = Cfg.SetMinPayoutFee
 			}
+			cost = Cfg.SetMinPayoutFee
 		}
 
 		tx, err := modelx.db.Begin()

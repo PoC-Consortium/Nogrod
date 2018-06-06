@@ -175,7 +175,7 @@ func GenMinerInfo(accountID uint64) *api.MinerInfo {
 		HistoricalShare:       historicalShare,
 		Deadline:              miner.CurrentDeadline(),
 		LastActiveBlockHeight: miner.CurrentBlockHeight(),
-		NConf:        int32(miner.DeadlinesParams.Len()),
+		NConf:        int32(len(miner.DeadlinesParams)),
 		PayoutDetail: miner.PayoutDetail}
 	miner.Unlock()
 
@@ -227,7 +227,7 @@ func (webServer *WebServer) updateMinerInfos() {
 			Address:               miner.Address,
 			Pending:               burstmath.PlanckToBurst(miner.Pending),
 			HistoricalShare:       0.0,
-			NConf:                 miner.DeadlinesParams.Len(),
+			NConf:                 len(miner.DeadlinesParams),
 			Capacity:              capacity,
 			Deadline:              miner.CurrentDeadline(),
 			LastActiveBlockHeight: miner.CurrentBlockHeight()}
