@@ -16,21 +16,9 @@
 
 ## Setup
 
-1. Create database
+1. Edit config (see config section for settings)
 
-``` shellsession
-echo "create database `<dbname>`" | mysql -u <user> -p
-```
-
-2. Import schema
-
-``` shellsession
-mysql -u <user> <dbname> < schema.sql
-```
-
-4. Edit config (see config section for settings)
-
-5. Run make
+2. Run make
 
 ``` shellsession
 make
