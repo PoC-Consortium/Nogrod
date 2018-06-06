@@ -175,4 +175,8 @@ For
 - countless statistical analyses
 you may thank **Herscht**: **BURST-HWKA-CTBB-J69E-79YHU**
 
+For
+- database migration, easier deployment and more flexible configuration
+you may thank **ymijorski**: **BURST-SGLT-GEKB-AMP2-GCFT8**
+
 For the implementation you may thank **bold**: **BURST-8V9Y-58B4-RVWP-8HQAV**
