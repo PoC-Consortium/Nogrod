@@ -208,7 +208,7 @@ func (config DBConfig) DataSourceName(includeDatabase bool) string {
 		"@tcp(" + config.Host + ":" + fmt.Sprint(config.Port) + ")/"
 
 	if includeDatabase {
-		dataSourceName = dataSourceName + config.Name + "?charset=utf8&parseTime=True&loc=Local"
+		dataSourceName = dataSourceName + config.Name + "?charset=utf8&parseTime=True&loc=Local&multiStatements=true"
 	}
 
 	return dataSourceName

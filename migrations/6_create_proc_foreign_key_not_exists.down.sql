@@ -1,1 +1,0 @@
-DROP procedure IF EXISTS `proc_foreign_key_not_exists`;
