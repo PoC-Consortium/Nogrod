@@ -1,1 +1,0 @@
-ALTER TABLE `miner` DROP FOREIGN KEY `miner_account_fk`;
