@@ -350,11 +350,16 @@
     function initializeClocks() {
       var tickTack = function () {
         var blockStartTime = Math.round((new Date(currentBlock.created)).getTime() / 1000);
+        var deadlineTime = currentDeadline != null
+                         ? currentDeadline + blockStartTime - Math.round((new Date()).getTime() / 1000)
+                         : 0;
+        if (deadlineTime < 0) {
+          deadlineTime = 0;
+        }
+
         clock(
           'deadline-clock',
-          currentDeadline != null
-          ? currentDeadline + blockStartTime - Math.round((new Date()).getTime() / 1000)
-          : 0
+          deadlineTime
         );
         clock(
           'round-elapsed-clock',
