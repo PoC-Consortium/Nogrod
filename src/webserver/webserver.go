@@ -158,15 +158,16 @@ func GenMinerInfo(accountID uint64) *api.MinerInfo {
 		return nil
 	}
 
+	poolCap := modelx.Cache.GetPoolCap()
+
+	miner.Lock()
 	cap := miner.CalculateEEPS()
 	var historicalShare float64
 
-	poolCap := modelx.Cache.GetPoolCap()
 	if poolCap != 0.0 {
 		historicalShare = cap / poolCap
 	}
 
-	miner.Lock()
 	mi := &api.MinerInfo{
 		Address:               miner.Address,
 		Name:                  miner.Name,
