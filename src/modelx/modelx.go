@@ -321,7 +321,7 @@ func (modelx *Modelx) CleanDB() {
 	Logger.Info("starting to cleanup db")
 
 	currentBlock := Cache.CurrentBlock()
-	modelx.db.MustExec("DELETE FROM block WHERE height < ?", currentBlock.Height-3000)
+	modelx.db.MustExec("DELETE FROM block WHERE height < ?", currentBlock.Height-5000)
 	modelx.db.MustExec(`DELETE FROM miner WHERE id NOT IN
                               (SELECT DISTINCT miner_id FROM nonce_submission)`)
 
