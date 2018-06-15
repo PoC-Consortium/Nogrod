@@ -25,7 +25,9 @@ protos:
 	rm -r src/protos
 api:
 	protoc --go_out=plugins=grpc:src/ api/api.proto
-build: deps libs
+build: submodules deps libs
+	@GOPATH=$(GOPATH) $(GOBUILD) -o $(BINARY_NAME)
+build-docker: deps libs
 	@GOPATH=$(GOPATH) $(GOBUILD) -o $(BINARY_NAME)
 libs:
 	cd src/goburst/burstmath/libs; \
@@ -33,8 +35,9 @@ libs:
 	$(CC) $(CFLAGS) -c -o mshabal_sse4.o mshabal_sse4.c; \
 	$(CC) $(CFLAGS) -mavx2 -c -o mshabal256_avx2.o mshabal256_avx2.c; \
 	$(CC) $(CFLAGS) -shared -o libburstmath.a burstmath.c shabal64.o mshabal_sse4.o mshabal256_avx2.o -lpthread -std=gnu99;
-deps:
+submodules:
 	git submodule update --init --recursive
+deps:
 	@GOPATH=$(GOPATH) $(GOGET) github.com/gorilla/websocket
 	@GOPATH=$(GOPATH) $(GOGET) gopkg.in/yaml.v2
 	@GOPATH=$(GOPATH) $(GOGET) github.com/jinzhu/gorm/dialects/mysql
