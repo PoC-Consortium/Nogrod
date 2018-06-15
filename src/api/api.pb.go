@@ -177,7 +177,7 @@ type BlockInfo struct {
 	BaseTarget          uint64 `protobuf:"varint,2,opt,name=baseTarget" json:"baseTarget,omitempty"`
 	Scoop               uint32 `protobuf:"varint,3,opt,name=scoop" json:"scoop,omitempty"`
 	GenerationSignature string `protobuf:"bytes,4,opt,name=generationSignature" json:"generationSignature,omitempty"`
-	MinerID             uint64 `protobuf:"varint,5,opt,name=minerID" json:"minerID,omitempty"`
+	MinerID             uint64 `protobuf:"varint,5,opt,name=minerID" json:"minerID,string,omitempty"`
 	Miner               string `protobuf:"bytes,6,opt,name=miner" json:"miner,omitempty"`
 	Deadline            uint64 `protobuf:"varint,7,opt,name=deadline" json:"deadline,omitempty"`
 	Created             string `protobuf:"bytes,8,opt,name=created" json:"created,omitempty"`
