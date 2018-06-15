@@ -2,7 +2,8 @@ FROM golang:1.10.2-stretch AS base
 WORKDIR /app
 
 FROM base AS build
-COPY ./ .
+COPY . .
+RUN ls -la
 RUN make build
 
 FROM base AS final
