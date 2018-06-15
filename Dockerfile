@@ -7,6 +7,7 @@ RUN make build-docker
 
 FROM base AS final
 COPY --from=build /app/goburstpool .
+COPY --from=build /app/migrations/ ./migrations
 COPY --from=build /app/src/goburst/burstmath/libs/ ./src/goburst/burstmath/libs
 VOLUME ["/app/config.yaml"]
 EXPOSE 8124
