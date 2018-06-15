@@ -44,9 +44,10 @@ type WebServer struct {
 	newClients      chan *Client
 	finishedClients chan *Client
 
-	templates *template.Template
-	blockInfo atomic.Value
-	upgrader  websocket.Upgrader
+	templates     *template.Template
+	blockInfo     atomic.Value
+	poolStatsInfo atomic.Value
+	upgrader      websocket.Upgrader
 
 	blockUpdates chan *api.BlockInfo
 	shareUpdates chan []*Share
@@ -148,6 +149,11 @@ func (webServer *WebServer) webSocketHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	poolStatsInfo := webServer.getPoolStatsInfo()
+	if err := c.WriteJSON(&poolStatsInfo); err != nil {
+		return
+	}
+
 	client := NewClient(c, webServer.finishedClients)
 	webServer.newClients <- client
 }
@@ -158,15 +164,16 @@ func GenMinerInfo(accountID uint64) *api.MinerInfo {
 		return nil
 	}
 
+	poolCap := modelx.Cache.GetPoolCap()
+
+	miner.Lock()
 	cap := miner.CalculateEEPS()
 	var historicalShare float64
 
-	poolCap := modelx.Cache.GetPoolCap()
 	if poolCap != 0.0 {
 		historicalShare = cap / poolCap
 	}
 
-	miner.Lock()
 	mi := &api.MinerInfo{
 		Address:               miner.Address,
 		Name:                  miner.Name,
@@ -353,10 +360,8 @@ func (webServer *WebServer) GetMinerInfo(ctx context.Context, req *api.MinerRequ
 }
 
 func (webServer *WebServer) GetPoolStatsInfo(ctx context.Context, req *api.Void) (*api.PoolStatsInfo, error) {
-	return &api.PoolStatsInfo{
-		MinerCount:            modelx.Cache.GetMinerCount(),
-		EffectivePoolCapacity: modelx.Cache.GetPoolCap(),
-		NetDiff:               webServer.netDiff.Load().(float64)}, nil
+	poolStatsInfo := webServer.getPoolStatsInfo()
+	return &poolStatsInfo, nil
 }
 
 func (webServer *WebServer) GetBlockInfo(ctx context.Context, req *api.Void) (*api.BlockInfo, error) {
@@ -366,6 +371,10 @@ func (webServer *WebServer) GetBlockInfo(ctx context.Context, req *api.Void) (*a
 
 func (webServer *WebServer) getBlockInfo() api.BlockInfo {
 	return webServer.blockInfo.Load().(api.BlockInfo)
+}
+
+func (webServer *WebServer) getPoolStatsInfo() api.PoolStatsInfo {
+	return webServer.poolStatsInfo.Load().(api.PoolStatsInfo)
 }
 
 func (webServer *WebServer) sendToClients(t int, data []byte) {
@@ -416,10 +425,18 @@ func (webServer *WebServer) updateNetDiff() {
 	webServer.netDiff.Store(netDiff)
 }
 
+func (webServer *WebServer) updatePoolStats() {
+	webServer.poolStatsInfo.Store(api.PoolStatsInfo{
+		EffectivePoolCapacity: modelx.Cache.GetPoolCap(),
+		NetDiff:               webServer.netDiff.Load().(float64),
+		MinerCount:            modelx.Cache.GetMinerCount()})
+}
+
 func (webServer *WebServer) cacheUpdateJobs() {
 	webServer.updateMinerInfos()
 	webServer.updateRecentlyWonBlocks()
 	webServer.updateNetDiff()
+	webServer.updatePoolStats()
 
 	minerInfoUpdateTicker := time.NewTicker(20 * time.Second)
 	wonBlocksUpdateTicker := time.NewTicker(10 * time.Minute)
@@ -445,6 +462,7 @@ func (webServer *WebServer) cacheUpdateJobs() {
 
 func (webServer *WebServer) webSocketJobs() {
 	pingTicker := time.NewTicker(pingPeriod)
+	poolStatsTicker := time.NewTicker(time.Minute * 2)
 	for {
 		select {
 		case client := <-webServer.newClients:
@@ -467,6 +485,15 @@ func (webServer *WebServer) webSocketJobs() {
 			}
 		case <-pingTicker.C:
 			webServer.sendToClients(websocket.PingMessage, []byte{})
+		case <-poolStatsTicker.C:
+			webServer.updatePoolStats()
+			poolStatsInfo := webServer.getPoolStatsInfo()
+			data, err := json.Marshal(&poolStatsInfo)
+			if err != nil {
+				Logger.Error("failed to encode pool stats to json", zap.Error(err))
+			} else {
+				webServer.sendToClients(websocket.TextMessage, data)
+			}
 		}
 	}
 }

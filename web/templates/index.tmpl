@@ -42,7 +42,6 @@
         </div>
       </div>
       <div class="column col-md-12 col-sm-12 col-xs-12">
-        <h4 class="sub-header">Current Block</h4>
         <div class="row">
           <div class="column col-md-6 col-sm-6 col-xs-6 small-padding">
             <div class="panel panel-default">
@@ -76,6 +75,24 @@
               <div class="panel-heading">Best Miner</div>
               <div class="panel-body text-center">
                 <div id="current-block-best-miner">(none)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="column col-md-6 col-sm-6 col-xs-6 small-padding">
+            <div class="panel panel-default">
+              <div class="panel-heading">Miner Count</div>
+              <div class="panel-body text-center">
+                <div id="miner-count"></div>
+              </div>
+            </div>
+          </div>
+          <div class="column col-md-6 col-sm-6 col-xs-6 small-padding">
+            <div class="panel panel-default">
+              <div class="panel-heading">Eff. Pool Capacity</div>
+              <div class="panel-body text-center">
+                <div id="effective-pool-capacity"></div>
               </div>
             </div>
           </div>
@@ -350,11 +367,16 @@
     function initializeClocks() {
       var tickTack = function () {
         var blockStartTime = Math.round((new Date(currentBlock.created)).getTime() / 1000);
+        var deadlineTime = currentDeadline != null
+                         ? currentDeadline + blockStartTime - Math.round((new Date()).getTime() / 1000)
+                         : 0;
+        if (deadlineTime < 0) {
+          deadlineTime = 0;
+        }
+
         clock(
           'deadline-clock',
-          currentDeadline != null
-          ? currentDeadline + blockStartTime - Math.round((new Date()).getTime() / 1000)
-          : 0
+          deadlineTime
         );
         clock(
           'round-elapsed-clock',
@@ -438,6 +460,19 @@
       }
     }
 
+    function updatePoolStatsInfo(poolStatsInfo) {
+      if (poolStatsInfo.minerCount === undefined) {
+        $('#miner-count').text('');
+      } else {
+        $('#miner-count').text(poolStatsInfo.minerCount);
+      }
+      if (poolStatsInfo.effectivePoolCapacity === undefined) {
+        $('#effective-pool-capacity').text('');
+      } else {
+        $('#effective-pool-capacity').text(poolStatsInfo.effectivePoolCapacity.toFixed(3) + ' TB');
+      }
+    }
+
     function updateShares(shares) {
       var chartData  = [["Miner", "Share"]];
 
@@ -513,6 +548,8 @@
             updateBlock(data);
           } else if (data.address !== undefined) {
             updateMinerInfo(data);
+          } else if (data.effectivePoolCapacity !== undefined) {
+            updatePoolStatsInfo(data);
           } else if (data.subscriptionFailed !== undefined) {
             $('#account-id-form-group').addClass('has-error');
             $('#account-id-form-group').removeClass('has-success');
