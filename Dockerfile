@@ -9,6 +9,7 @@ FROM base AS final
 COPY --from=build /app/goburstpool .
 COPY --from=build /app/migrations/ ./migrations
 COPY --from=build /app/src/goburst/burstmath/libs/ ./src/goburst/burstmath/libs
+COPY --from=build /app/web ./web
 VOLUME ["/app/config.yaml"]
 EXPOSE 8124
 EXPOSE 8080
