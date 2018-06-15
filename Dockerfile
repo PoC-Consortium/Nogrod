@@ -3,8 +3,7 @@ WORKDIR /app
 
 FROM base AS build
 COPY . .
-RUN ls -la
-RUN make build
+RUN make build-docker
 
 FROM base AS final
 COPY --from=build /app/goburstpool .
