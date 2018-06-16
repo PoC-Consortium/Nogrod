@@ -1,9 +1,8 @@
 /goburstpool
 /vendor
 /cover.out
+/.cquery_cached_index
 *.o
 *.a
-
 \.vscode/
-
 *.code-workspace
