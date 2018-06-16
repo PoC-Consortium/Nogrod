@@ -100,7 +100,6 @@ func (pool *Pool) forge(currentBlock Block) {
 
 			Logger.Info("new best deadline", zap.Uint64("deadline", nonceSubmission.Deadline))
 			bestNonceSubmission = nonceSubmission
-			// TODO: also need to do this for old submissions...
 			pool.modelx.UpdateBestSubmission(nonceSubmission.MinerID, nonceSubmission.Height)
 			Cache.StoreBestNonceSubmission(*bestNonceSubmission)
 
