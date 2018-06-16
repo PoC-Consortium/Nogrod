@@ -119,10 +119,6 @@ apiPort: 7777
 # by IP and requestType
 allowRequestsPerSecond: 3
 
-# block height when poc2 validation starts
-# defaults to max uint64
-PoC2StartHeight: 9000000
-
 # fee for forcing a payment to the miner as soon as possible
 # in planck
 setNowFee: 500000000

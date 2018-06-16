@@ -49,7 +49,6 @@ type Config struct {
 	NodePort               uint     `yaml:"nodePort"`
 	NodeListenAddress      string   `yaml:"ndeListenAddress"`
 	TMin                   int32    `yaml:"tMin"`
-	PoC2StartHeight        uint64   `yaml:"PoC2StartHeight"`
 	SetNowFee              int64    `yaml:"setNowFee"`
 	SetWeeklyFee           int64    `yaml:"setWeeklyFee"`
 	SetDailyFee            int64    `yaml:"setDailyFee"`
@@ -189,10 +188,6 @@ func validateConfig() {
 	if Cfg.TxFee == 0 {
 		Cfg.TxFee = 100000000
 		Logger.Info("Using default 100000000 for Cfg.TxFee")
-	}
-
-	if Cfg.PoC2StartHeight == 0 {
-		Cfg.PoC2StartHeight = ^uint64(0)
 	}
 
 	if Cfg.WalletTimeout <= 0 {

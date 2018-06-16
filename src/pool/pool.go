@@ -250,8 +250,7 @@ func (pool *Pool) processSubmitNonceRequest(w http.ResponseWriter, req *http.Req
 	}
 
 	// Calculate deadline and check against limit
-	deadlineReq := burstmath.NewCalcDeadlineRequest(accountID, nonce, ri.BaseTarget, ri.Scoop, ri.GenSig,
-		ri.Height >= Cfg.PoC2StartHeight)
+	deadlineReq := burstmath.NewCalcDeadlineRequest(accountID, nonce, ri.BaseTarget, ri.Scoop, ri.GenSig)
 	deadline := pool.deadlineRequestHandler.CalcDeadline(deadlineReq)
 
 	if Cfg.DeadlineLimit != 0 && deadline > Cfg.DeadlineLimit {
