@@ -9,12 +9,13 @@ import (
 	"fmt"
 	"goburst/burstmath"
 	"goburst/rsencoding"
+	"goburst/wallet"
 	. "logger"
 	"math"
 	"strconv"
 	"sync"
 	"time"
-	"wallet"
+	"wallethandler"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate"
@@ -84,7 +85,7 @@ type Transaction struct {
 type Modelx struct {
 	db            *sqlx.DB
 	walletDB      *sqlx.DB
-	walletHandler wallet.WalletHandler
+	walletHandler wallethandler.WalletHandler
 
 	newBlockMu sync.Mutex
 }
@@ -109,7 +110,7 @@ type WonBlock struct {
 	Reward        float64 `db:"reward"`
 }
 
-func NewModelX(walletHandler wallet.WalletHandler) *Modelx {
+func NewModelX(walletHandler wallethandler.WalletHandler) *Modelx {
 	db, err := initializeDatabase()
 
 	if err != nil {
@@ -829,7 +830,7 @@ func (modelx *Modelx) GetSharesOnBlock(height uint64) (map[uint64]float64, error
 	return shareOf, nil
 }
 
-func (modelx *Modelx) rewardBlock(blockInfo *wallet.BlockInfo) {
+func (modelx *Modelx) rewardBlock(blockInfo *wallet.GetBlockReply) {
 	shareInPlanckOf := make(map[uint64]int64)
 	totalReward := blockInfo.BlockReward*100000000 + blockInfo.TotalFeeNQT
 	reward := totalReward
@@ -851,7 +852,7 @@ func (modelx *Modelx) rewardBlock(blockInfo *wallet.BlockInfo) {
 
 	for accountID, share := range shareOf {
 		shareInPlanck := round(share * float64(reward))
-		if accountID == blockInfo.GeneratorID {
+		if accountID == blockInfo.Generator {
 			shareInPlanck += winnerReward
 		}
 		shareInPlanckOf[accountID] = shareInPlanck
@@ -881,7 +882,7 @@ func (modelx *Modelx) rewardBlock(blockInfo *wallet.BlockInfo) {
 	}
 
 	sql := "UPDATE block SET winner_verified = 1, reward = ?, winner_id = ? WHERE height = ?"
-	if _, err := tx.Exec(sql, totalReward, blockInfo.GeneratorID, blockInfo.Height); err != nil {
+	if _, err := tx.Exec(sql, totalReward, blockInfo.Generator, blockInfo.Height); err != nil {
 		Logger.Error("udpate won block failed", zap.Error(err))
 		tx.Rollback()
 		return

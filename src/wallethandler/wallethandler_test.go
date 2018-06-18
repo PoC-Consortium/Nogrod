@@ -1,6 +1,6 @@
 // (c) 2018 PoC Consortium ALL RIGHTS RESERVED
 
-package wallet
+package wallethandler
 
 import (
 	. "config"
