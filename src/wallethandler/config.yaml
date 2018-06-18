@@ -1,0 +1,25 @@
+blockHeightPayoutDelay: 10
+secretPhrase: "<your secret phrase>"
+walletUrls:
+  - "http://176.9.47.157:6876"
+shareExponent: 1.2
+poolPublicId: 10282355196851764065
+minimumPayout: 25000000000
+txFee: 100000000
+poolFeeShare: 0.0
+deadlineLimit: 10000000000
+walletDB:
+  user: "root"
+  password: ""
+  name: "testburstwallet"
+db:
+  user: "burstpool"
+  password: "somepw"
+  name: "burstpool"
+feeAccountId: 6418289488649374107
+inactiveAfterXBlocks: 10
+alpha: 0.02
+winnerShare: 1
+poolPort: 8124
+webServerPort: 8080
+poolAddress: "http://127.0.0.1"
