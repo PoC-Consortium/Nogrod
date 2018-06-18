@@ -6,7 +6,7 @@ import (
 	. "config"
 	"modelx"
 	"pool"
-	"wallet"
+	"wallethandler"
 	"webserver"
 )
 
@@ -14,7 +14,7 @@ func main() {
 	LoadConfig()
 	modelx.InitCache()
 
-	walletHandler := wallet.NewWalletHandler(Cfg.WalletUrls, Cfg.SecretPhrase, Cfg.WalletTimeoutDur,
+	walletHandler := wallethandler.NewWalletHandler(Cfg.WalletUrls, Cfg.SecretPhrase, Cfg.WalletTimeoutDur,
 		Cfg.TrustAllWalletCerts)
 	modelx := modelx.NewModelX(walletHandler)
 

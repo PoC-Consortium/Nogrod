@@ -23,6 +23,7 @@ PoCC Goburstpool - Terms and conditions
 - <http://0-100.burst-team.us> Burst-Team 0-100
 - <http://50-50.burstforum.net> Burstforum 50-50
 - <http://bibenwei.com> bibenwei
+- <http://burst.burritopool.com> burritopool
 - <http://burst.btfg.space/> BTFG Pool
 - <http://burst.daprogs.com> DAProgs Pool
 - <http://demo.creepminer.net> CreepMiner demo/experimental pool

@@ -73,7 +73,8 @@ db:
     password: "super secret password for pool"
     name: "burstpooldb"
 
-# database connection data base of wallet
+# database connection data base of wallet to fetch reward recips
+# if ommited recips will be queried through api
 walletDB:
     host: "127.0.0.1"
     port: 3306
@@ -118,10 +119,6 @@ apiPort: 7777
 # requests per second until the rate limiter kicks in
 # by IP and requestType
 allowRequestsPerSecond: 3
-
-# block height when poc2 validation starts
-# defaults to max uint64
-PoC2StartHeight: 9000000
 
 # fee for forcing a payment to the miner as soon as possible
 # in planck

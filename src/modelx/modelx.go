@@ -9,12 +9,13 @@ import (
 	"fmt"
 	"goburst/burstmath"
 	"goburst/rsencoding"
+	"goburst/wallet"
 	. "logger"
 	"math"
 	"strconv"
 	"sync"
 	"time"
-	"wallet"
+	"wallethandler"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate"
@@ -84,7 +85,7 @@ type Transaction struct {
 type Modelx struct {
 	db            *sqlx.DB
 	walletDB      *sqlx.DB
-	walletHandler wallet.WalletHandler
+	walletHandler wallethandler.WalletHandler
 
 	newBlockMu sync.Mutex
 }
@@ -109,22 +110,22 @@ type WonBlock struct {
 	Reward        float64 `db:"reward"`
 }
 
-func NewModelX(walletHandler wallet.WalletHandler) *Modelx {
+func NewModelX(walletHandler wallethandler.WalletHandler) *Modelx {
 	db, err := initializeDatabase()
-
 	if err != nil {
 		Logger.Fatal("failed to connect to database", zap.Error(err))
 	}
-
-	walletDB, err := sqlx.Connect("mysql", Cfg.WalletDB.DataSourceName(true))
-	if err != nil {
-		Logger.Fatal("failed to connect to database", zap.Error(err))
-	}
-
 	modelx := Modelx{
 		db:            db,
-		walletDB:      walletDB,
 		walletHandler: walletHandler}
+
+	if Cfg.WalletDB.Name != "" {
+		walletDB, err := sqlx.Connect("mysql", Cfg.WalletDB.DataSourceName(true))
+		if err != nil {
+			Logger.Fatal("failed to connect to database", zap.Error(err))
+		}
+		modelx.walletDB = walletDB
+	}
 
 	if Cfg.FeeAccountID != 0 {
 		modelx.createFeeAccount()
@@ -133,6 +134,7 @@ func NewModelX(walletHandler wallet.WalletHandler) *Modelx {
 	loaded := modelx.loadCurrentBlock()
 	if loaded {
 		modelx.cacheMiners()
+		modelx.cacheRewardRecipients()
 	} else {
 		miningInfo, err := modelx.walletHandler.GetMiningInfo()
 		if err != nil {
@@ -321,7 +323,7 @@ func (modelx *Modelx) CleanDB() {
 	Logger.Info("starting to cleanup db")
 
 	currentBlock := Cache.CurrentBlock()
-	modelx.db.MustExec("DELETE FROM block WHERE height < ?", currentBlock.Height-3000)
+	modelx.db.MustExec("DELETE FROM block WHERE height < ?", currentBlock.Height-5000)
 	modelx.db.MustExec(`DELETE FROM miner WHERE id NOT IN
                               (SELECT DISTINCT miner_id FROM nonce_submission)`)
 
@@ -495,7 +497,7 @@ func (modelx *Modelx) NewBlock(baseTarget uint64, genSig string, height uint64) 
 	})
 
 	if newBlock.Height != 0 {
-		modelx.CacheRewardRecipients()
+		modelx.cacheRewardRecipients()
 		Cache.StoreCurrentBlock(newBlock)
 	}
 
@@ -829,7 +831,7 @@ func (modelx *Modelx) GetSharesOnBlock(height uint64) (map[uint64]float64, error
 	return shareOf, nil
 }
 
-func (modelx *Modelx) rewardBlock(blockInfo *wallet.BlockInfo) {
+func (modelx *Modelx) rewardBlock(blockInfo *wallet.GetBlockReply) {
 	shareInPlanckOf := make(map[uint64]int64)
 	totalReward := blockInfo.BlockReward*100000000 + blockInfo.TotalFeeNQT
 	reward := totalReward
@@ -851,7 +853,7 @@ func (modelx *Modelx) rewardBlock(blockInfo *wallet.BlockInfo) {
 
 	for accountID, share := range shareOf {
 		shareInPlanck := round(share * float64(reward))
-		if accountID == blockInfo.GeneratorID {
+		if accountID == blockInfo.Generator {
 			shareInPlanck += winnerReward
 		}
 		shareInPlanckOf[accountID] = shareInPlanck
@@ -881,7 +883,7 @@ func (modelx *Modelx) rewardBlock(blockInfo *wallet.BlockInfo) {
 	}
 
 	sql := "UPDATE block SET winner_verified = 1, reward = ?, winner_id = ? WHERE height = ?"
-	if _, err := tx.Exec(sql, totalReward, blockInfo.GeneratorID, blockInfo.Height); err != nil {
+	if _, err := tx.Exec(sql, totalReward, blockInfo.Generator, blockInfo.Height); err != nil {
 		Logger.Error("udpate won block failed", zap.Error(err))
 		tx.Rollback()
 		return
@@ -1007,25 +1009,6 @@ func (modelx *Modelx) GetRecentlyWonBlocks() []WonBlock {
 	return wonBlocks
 }
 
-func (modelx *Modelx) IsPoolRewardRecipient(accountID uint64) (bool, error) {
-	var isCorrect bool
-
-	// try a cache lookup
-	isCorrect, cached := Cache.IsRewardRecipient(accountID)
-	if cached {
-		return isCorrect, nil
-	}
-
-	// try to find in wallet db
-	sql := `SELECT 1 FROM reward_recip_assign
-                          WHERE account_id = CAST(? AS SIGNED) AND recip_id = CAST(? AS SIGNED) AND latest = 1 LIMIT 1`
-
-	// ignore error no rows in resultset
-	modelx.walletDB.Get(&isCorrect, sql, accountID, Cfg.PoolPublicID)
-	Cache.StoreRewardRecipient(accountID, isCorrect)
-	return isCorrect, nil
-}
-
 func (modelx *Modelx) getGenerationTime(height uint64) (int32, error) {
 	// TODO: timestamp of block isn't available fast enough
 	// 	var timestamps []int32
@@ -1038,24 +1021,32 @@ func (modelx *Modelx) getGenerationTime(height uint64) (int32, error) {
 	return modelx.walletHandler.GetGenerationTime(height)
 }
 
-func (modelx *Modelx) CacheRewardRecipients() {
-	var validAccoundIDs []uint64
-	rewardRecipient := make(map[uint64]bool)
-	defer Cache.StoreRewardRecipients(rewardRecipient)
+func (modelx *Modelx) cacheRewardRecipients() {
+	if !modelx.isConnectedToWalletDB() {
+		recips, err := modelx.walletHandler.GetRewardRecipients()
+		if err != nil {
+			Logger.Error("failed to get rewrad recipients", zap.Error(err))
+			return
+		}
+		Cache.StoreRewardRecipients(recips)
+		return
+	}
 
+	var validAccoundIDs []uint64
 	sql := `SELECT CAST(account_id AS UNSIGNED)
                   FROM reward_recip_assign
                   WHERE recip_id = CAST(? AS SIGNED) AND latest = 1`
-
 	err := modelx.walletDB.Select(&validAccoundIDs, sql, Cfg.PoolPublicID)
 	if err != nil {
 		Logger.Error("failed caching reward recipients", zap.Error(err))
 		return
 	}
 
+	recips := make(map[uint64]bool)
 	for _, accoundID := range validAccoundIDs {
-		rewardRecipient[accoundID] = true
+		recips[accoundID] = true
 	}
+	Cache.StoreRewardRecipients(recips)
 }
 
 func (modelx *Modelx) GetAVGNetDiff(n uint) float64 {
@@ -1205,6 +1196,10 @@ func (modelx *Modelx) SetMinPayout(msgOf map[uint64]string) {
 			miner.Unlock()
 		}
 	}
+}
+
+func (modelx *Modelx) isConnectedToWalletDB() bool {
+	return modelx.walletDB != nil
 }
 
 func weightDeadline(deadline, baseTarget uint64) float64 {
