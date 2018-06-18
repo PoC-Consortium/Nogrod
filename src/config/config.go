@@ -110,10 +110,6 @@ func validateConfig() {
 		Logger.Fatal("'dbUser' can't be empty")
 	}
 
-	if Cfg.WalletDB.Name == "" {
-		Logger.Fatal("'walletDB.Name' can't be empty")
-	}
-
 	if Cfg.WalletDB.Host == "" {
 		Cfg.WalletDB.Host = "127.0.0.1"
 	}

@@ -24,6 +24,7 @@ type WalletHandler interface {
 	WonBlock(uint64, uint64, uint64) (bool, *wallet.GetBlockReply, error)
 	GetGenerationTime(height uint64) (int32, error)
 	GetIncomingMsgsSince(date time.Time) (map[uint64]string, error)
+	GetRewardRecipients() (map[uint64]bool, error)
 }
 
 type walletHandler struct {
@@ -211,4 +212,21 @@ func (wh *walletHandler) GetIncomingMsgsSince(date time.Time) (map[uint64]string
 		}
 	}
 	return msgOf, nil
+}
+
+func (wh *walletHandler) GetRewardRecipients() (map[uint64]bool, error) {
+	// TODO: we should always get the newest reward recipients, that means
+	// the reward recipients from the wallet with the longest block chain
+	res, err := wh.reqRandom(func(w wallet.Wallet) (interface{}, error) {
+		return w.GetAccountsWithRewardRecipient(&wallet.GetAccountsWithRewardRecipientRequest{
+			AccountID: Cfg.PoolPublicID})
+	})
+	if err != nil {
+		return nil, err
+	}
+	recips := make(map[uint64]bool)
+	for _, r := range res.(*wallet.GetAccountsWithRewardRecipientReply).Recipients {
+		recips[uint64(r)] = true
+	}
+	return recips, nil
 }

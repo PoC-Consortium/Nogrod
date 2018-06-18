@@ -219,12 +219,8 @@ func (pool *Pool) processSubmitNonceRequest(w http.ResponseWriter, req *http.Req
 		zap.Uint64("nonce", nonce))
 
 	// Check if the reward recepient is correct and cache it for this round
-	correctRewardRecepient, err := pool.modelx.IsPoolRewardRecipient(accountID)
-	if err != nil {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write(formatJSONError(1014, "Account's reward recipient couldn't be determined"))
-		return
-	} else if !correctRewardRecepient {
+	correctRewardRecepient, _ := Cache.IsRewardRecipient(accountID)
+	if !correctRewardRecepient {
 		w.WriteHeader(http.StatusForbidden)
 		w.Write(formatJSONError(1004, "Account's reward recipient doesn't match the pool's"))
 		requestLogger.Warn("reward recipient doesn't match pools", zap.Uint64("accountID", accountID))
