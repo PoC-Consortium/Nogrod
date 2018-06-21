@@ -2,7 +2,7 @@ START TRANSACTION;
 
 CREATE TABLE IF NOT EXISTS `transaction_recipient` (
   `id` BIGINT(20) NOT NULL AUTO_INCREMENT,
-  `transaction_id` BIGINT(20) unsigned NOT NULL,
+  `transaction_id` BIGINT(20) NOT NULL,
   `recipient_id` BIGINT(20) unsigned NOT NULL,
   `amount` BIGINT(20) NOT NULL,
   PRIMARY KEY (`id`),
@@ -11,23 +11,34 @@ CREATE TABLE IF NOT EXISTS `transaction_recipient` (
 )
 ENGINE = InnoDB;
 
-INSERT INTO `transaction_recipient` (`transaction_id`, `recipient_id`, `amount`)
-SELECT `id,` `recipient_id,` `amount`
-FROM `transaction`;
+RENAME TABLE `transaction` TO `transaction_old`;
 
-ALTER TABLE `transaction`
-DROP FOREIGN KEY `account_fk`,
-DROP `recipient_id`,
-DROP `amount`,
-ADD COLUMN `block_height` BIGINT(20) unsigned,
-ADD INDEX `block_fk_idx` (`block_height` ASC);
+CREATE TABLE IF NOT EXISTS `transaction` (
+  `id` BIGINT(20) NOT NULL AUTO_INCREMENT,
+  `transaction_id` BIGINT(20) unsigned,
+  `block_height` BIGINT(20) unsigned,
+  `created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `transaction_block_fk_idx` (`block_height` ASC)
+)
+ENGINE = InnoDB;
+
+INSERT INTO `transaction` (transaction_id, created)
+SELECT id, created
+FROM transaction_old;
+
+INSERT INTO transaction_recipient (transaction_id, recipient_id, amount)
+SELECT t.id, o.recipient_id, o.amount
+FROM `transaction` t JOIN transaction_old AS o ON transaction_id = o.id;
+
+DROP TABLE transaction_old;
 
 CALL `proc_foreign_key_check`(
 	'transaction_recipient',
-    'account_fk',
+    'transaction_recipient_account_fk',
     '
 ALTER TABLE `transaction_recipient`
-ADD CONSTRAINT `account_fk`
+ADD CONSTRAINT `transaction_recipient_account_fk`
     FOREIGN KEY (`recipient_id`)
     REFERENCES `account` (`id`)
     ON DELETE CASCADE
@@ -36,10 +47,10 @@ ADD CONSTRAINT `account_fk`
 
 CALL `proc_foreign_key_check`(
 	'transaction_recipient',
-    'transaction_fk',
+    'transaction_recipient_transaction_fk',
     '
 ALTER TABLE `transaction_recipient`
-ADD CONSTRAINT `transaction_fk`
+ADD CONSTRAINT `transaction_recipient_transaction_fk`
     FOREIGN KEY (`transaction_id`)
     REFERENCES `transaction` (`id`)
     ON DELETE CASCADE
