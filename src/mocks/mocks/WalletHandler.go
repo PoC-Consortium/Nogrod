@@ -146,6 +146,29 @@ func (_m *WalletHandler) GetRewardRecipients() (map[uint64]bool, error) {
 	return r0, r1
 }
 
+// GetTransaction provides a mock function with given fields: _a0
+func (_m *WalletHandler) GetTransaction(_a0 uint64) (*wallet.GetTransactionReply, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *wallet.GetTransactionReply
+	if rf, ok := ret.Get(0).(func(uint64) *wallet.GetTransactionReply); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*wallet.GetTransactionReply)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(uint64) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // SendPayment provides a mock function with given fields: _a0, _a1
 func (_m *WalletHandler) SendPayment(_a0 uint64, _a1 int64) (uint64, error) {
 	ret := _m.Called(_a0, _a1)
@@ -160,6 +183,27 @@ func (_m *WalletHandler) SendPayment(_a0 uint64, _a1 int64) (uint64, error) {
 	var r1 error
 	if rf, ok := ret.Get(1).(func(uint64, int64) error); ok {
 		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SendPayments provides a mock function with given fields: _a0
+func (_m *WalletHandler) SendPayments(_a0 map[uint64]int64) (uint64, error) {
+	ret := _m.Called(_a0)
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func(map[uint64]int64) uint64); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(map[uint64]int64) error); ok {
+		r1 = rf(_a0)
 	} else {
 		r1 = ret.Error(1)
 	}
