@@ -6,6 +6,7 @@ service Api {
     rpc GetMinerInfo(MinerRequest) returns (MinerInfo) {}
     rpc GetPoolStatsInfo(Void) returns (PoolStatsInfo) {}
     rpc GetBlockInfo(Void) returns (BlockInfo) {}
+    rpc GetPoolConfigInfo(Void) returns (PoolConfigInfo) {}
 }
 
 message Void {}
@@ -41,4 +42,21 @@ message BlockInfo {
     string miner = 6;
     uint64 deadline = 7;
     string created = 8;
+}
+
+message PoolConfigInfo {
+    double poolFeeShare = 1;
+    uint64 deadlineLimit = 2;
+    int64  MinimumPayout = 3;
+    int64 TxFee = 4;
+    double WinnerShare = 5;
+    int32 TMin = 6;
+    int32 NAVG = 7;
+    int32 NMin = 8;
+    int64 SetNowFee = 9;
+    int64 SetWeeklyFee = 10;
+    int64 SetDailyFee = 11;
+    int64 SetMinPayoutFee = 12;
+    string Version = 13;
+    uint64 PoolPublicID = 14;
 }

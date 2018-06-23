@@ -364,6 +364,24 @@ func (webServer *WebServer) GetPoolStatsInfo(ctx context.Context, req *api.Void)
 	return &poolStatsInfo, nil
 }
 
+func (webServer *WebServer) GetPoolConfigInfo(ctx context.Context, req *api.Void) (*api.PoolConfigInfo, error) {
+	return &api.PoolConfigInfo{
+		PoolFeeShare:    Cfg.PoolFeeShare,
+		DeadlineLimit:   Cfg.DeadlineLimit,
+		MinimumPayout:   Cfg.MinimumPayout,
+		TxFee:           Cfg.TxFee,
+		WinnerShare:     Cfg.WinnerShare,
+		TMin:            Cfg.TMin,
+		NAVG:            int32(Cfg.NAVG),
+		NMin:            int32(Cfg.NMin),
+		SetNowFee:       Cfg.SetNowFee,
+		SetDailyFee:     Cfg.SetDailyFee,
+		SetWeeklyFee:    Cfg.SetWeeklyFee,
+		SetMinPayoutFee: Cfg.SetMinPayoutFee,
+		Version:         Cfg.Version,
+		PoolPublicID:    Cfg.PoolPublicID}, nil
+}
+
 func (webServer *WebServer) GetBlockInfo(ctx context.Context, req *api.Void) (*api.BlockInfo, error) {
 	blockInfo := webServer.getBlockInfo()
 	return &blockInfo, nil
