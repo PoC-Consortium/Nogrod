@@ -20,11 +20,13 @@ type WalletHandler interface {
 	GetBlockInfo(uint64) (*wallet.GetBlockReply, error)
 	SubmitNonce(uint64, uint64, uint64) error
 	SendPayment(uint64, int64) (uint64, error)
+	SendPayments(map[uint64]int64) (uint64, error)
 	GetAccountInfo(uint64) (*wallet.GetAccountReply, error)
 	WonBlock(uint64, uint64, uint64) (bool, *wallet.GetBlockReply, error)
 	GetGenerationTime(height uint64) (int32, error)
 	GetIncomingMsgsSince(date time.Time) (map[uint64]string, error)
 	GetRewardRecipients() (map[uint64]bool, error)
+	GetTransaction(uint64) (*wallet.GetTransactionReply, error)
 }
 
 type walletHandler struct {
@@ -120,8 +122,9 @@ func (wh *walletHandler) GetBlockInfo(height uint64) (*wallet.GetBlockReply, err
 func (wh *walletHandler) SubmitNonce(nonce uint64, accountID uint64, deadline uint64) error {
 	_, err := wh.reqRandom(func(w wallet.Wallet) (interface{}, error) {
 		res, err := w.SubmitNonce(&wallet.SubmitNonceRequest{
-			AccountID: accountID,
-			Nonce:     nonce})
+			AccountID:    accountID,
+			Nonce:        nonce,
+			SecretPhrase: wh.secretPhrase})
 		if err != nil {
 			return nil, err
 		}
@@ -149,6 +152,24 @@ func (wh *walletHandler) SendPayment(recipient uint64, amount int64) (uint64, er
 		return 0, err
 	}
 	return obj.(*wallet.SendMoneyReply).TxID, nil
+}
+
+func (wh *walletHandler) SendPayments(idToAmount map[uint64]int64) (uint64, error) {
+	recipients, err := wallet.EncodeRecipients(idToAmount)
+	if err != nil {
+		return 0, err
+	}
+	obj, err := wh.reqRandom(func(w wallet.Wallet) (interface{}, error) {
+		return w.SendMoneyMulti(&wallet.SendMoneyMultiRequest{
+			Recipients:   recipients,
+			Deadline:     1440,
+			FeeNQT:       Cfg.TxFee,
+			SecretPhrase: wh.secretPhrase})
+	})
+	if err != nil {
+		return 0, err
+	}
+	return obj.(*wallet.SendMoneyMultiReply).TxID, nil
 }
 
 func (wh *walletHandler) GetAccountInfo(accountID uint64) (*wallet.GetAccountReply, error) {
@@ -229,4 +250,14 @@ func (wh *walletHandler) GetRewardRecipients() (map[uint64]bool, error) {
 		recips[uint64(r)] = true
 	}
 	return recips, nil
+}
+
+func (wh *walletHandler) GetTransaction(txID uint64) (*wallet.GetTransactionReply, error) {
+	res, err := wh.reqRandom(func(w wallet.Wallet) (interface{}, error) {
+		return w.GetTransaction(&wallet.GetTransactionRequest{Transaction: txID})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.(*wallet.GetTransactionReply), nil
 }

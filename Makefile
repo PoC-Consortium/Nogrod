@@ -55,8 +55,10 @@ deps:
 	@GOPATH=$(GOPATH) $(GOGET) github.com/valyala/fasthttp
 	@GOPATH=$(GOPATH) $(GOGET) github.com/google/go-querystring/query
 mocks:
-	@GOPATH=$(GOPATH) mockery -name=WalletHandler -dir=./src/wallet/
-	mv mocks src/mocks
+	@GOPATH=$(GOPATH) mockery -name=WalletHandler -dir=./src/wallethandler/
+	mkdir -p src/mocks
+	mv mocks/WalletHandler.go src/mocks/
+	rm -r mocks
 test:
 	go test ./... -cover
 cover:
