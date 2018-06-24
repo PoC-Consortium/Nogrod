@@ -1,7 +1,7 @@
 blockHeightPayoutDelay: 10
 secretPhrase: "<your secret phrase>"
 walletUrls:
-  - "http://176.9.47.157:6876"
+  - "https://wallet.burst-test.net:8125"
 shareExponent: 1.2
 poolPublicId: 10282355196851764065
 minimumPayout: 250000000000
