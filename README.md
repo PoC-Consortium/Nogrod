@@ -73,7 +73,8 @@ db:
     password: "super secret password for pool"
     name: "burstpooldb"
 
-# database connection data base of wallet
+# database connection data base of wallet to fetch reward recips
+# if ommited recips will be queried through api
 walletDB:
     host: "127.0.0.1"
     port: 3306

@@ -5,6 +5,8 @@ package modelx
 import (
 	"database/sql"
 	"errors"
+	"goburst/burstmath"
+	"goburst/wallet"
 	"log"
 	"os/exec"
 	"testing"
@@ -12,8 +14,8 @@ import (
 
 	. "config"
 	"mocks"
-	"wallet"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -42,7 +44,7 @@ func init() {
 	}
 
 	InitCache()
-	modelx = NewModelX(&walletHandlerMock)
+	modelx = NewModelX(&walletHandlerMock, false)
 }
 
 func TestNewModelX(t *testing.T) {
@@ -174,21 +176,21 @@ func TestRewardBlocks(t *testing.T) {
 	walletHandlerMock.On("WonBlock", uint64(493736), mock.Anything, mock.Anything).Return(false, nil, nil)
 	walletHandlerMock.On("WonBlock", uint64(493737), mock.Anything, mock.Anything).Return(false, nil, nil)
 	walletHandlerMock.On("WonBlock", uint64(492024), uint64(243989817010793960), uint64(626112363318)).Return(
-		true, &wallet.BlockInfo{
+		true, &wallet.GetBlockReply{
 			Height:      492024,
-			GeneratorID: 243989817010793960,
+			Generator:   243989817010793960,
 			BlockReward: 99500000000,
 			TotalFeeNQT: 500000000}, nil)
 	walletHandlerMock.On("WonBlock", uint64(491588), uint64(243989817010793960), uint64(641317572514)).Return(
-		true, &wallet.BlockInfo{
+		true, &wallet.GetBlockReply{
 			Height:      491588,
-			GeneratorID: 243989817010793960,
+			Generator:   243989817010793960,
 			BlockReward: 39500000000,
 			TotalFeeNQT: 400000000}, nil)
 	walletHandlerMock.On("WonBlock", uint64(493698), uint64(10687838508612871566), uint64(11076047877)).Return(
-		true, &wallet.BlockInfo{
+		true, &wallet.GetBlockReply{
 			Height:      493698,
-			GeneratorID: 243989817010793960,
+			Generator:   243989817010793960,
 			BlockReward: 39500000000,
 			TotalFeeNQT: 400000000}, nil)
 
@@ -263,7 +265,7 @@ func TestRewardBlocks(t *testing.T) {
 
 func TestFirstOrCreateMiner(t *testing.T) {
 	accountID := uint64(1337)
-	walletHandlerMock.On("GetAccountInfo", accountID).Return(&wallet.AccountInfo{Name: "josef"}, nil)
+	walletHandlerMock.On("GetAccountInfo", accountID).Return(&wallet.GetAccountReply{Name: "josef"}, nil)
 	miner := modelx.FirstOrCreateMiner(accountID)
 	if !assert.NotNil(t, miner, "failed to create miner") {
 		return
@@ -430,11 +432,24 @@ func TestUpdateBestNonceSubmission(t *testing.T) {
 func TestCleanDB(t *testing.T) {
 	currentHeight := Cache.CurrentBlock().Height
 
-	heightToDelete := currentHeight - 3000 - 1
-	heightNotToDelete := currentHeight - 3000 + 1
+	heightToDelete := currentHeight - 5000 - 1
+	heightNotToDelete := currentHeight - 5000 + 1
 
 	minerToDelete := uint64(13371337)
 	minerNotToDelete := uint64(13371338)
+
+	genSigBytes, _ := burstmath.DecodeGeneratorSignature(sampleGenSig)
+
+	modelx.db.MustExec(`INSERT
+	        INTO block (height, base_target, scoop, generation_signature, created, generation_time)
+	        VALUES (?, ?, ?, ?, ?, ?)`,
+		heightToDelete, 13, burstmath.CalcScoop(heightNotToDelete, genSigBytes), sampleGenSig,
+		time.Now(), 30)
+	modelx.db.MustExec(`INSERT
+	        INTO block (height, base_target, scoop, generation_signature, created, generation_time)
+	        VALUES (?, ?, ?, ?, ?, ?)`,
+		heightNotToDelete, 13, burstmath.CalcScoop(heightNotToDelete, genSigBytes), sampleGenSig,
+		time.Now(), 30)
 
 	// miner that should get deleted
 	modelx.db.MustExec(`INSERT INTO account
@@ -493,16 +508,7 @@ func TestGetBestNonceSubmission(t *testing.T) {
 	}
 }
 
-/*
-1. min payout
-  - custom
-  - default
-2. time
-  - weekly
-  - now
-  - daily
-*/
-func TestPayout(t *testing.T) {
+func TestCreateTransactionsAndSendMoney(t *testing.T) {
 	type payoutTest struct {
 		accountID         uint64
 		pending           int64
@@ -544,11 +550,50 @@ func TestPayout(t *testing.T) {
 			pending:           4000000000,
 			nextPayoutDate:    &now,
 			expNextPayoutDate: &expNextWeekly,
-			payoutInterval:    &weeklyStr}}
+			payoutInterval:    &weeklyStr},
+		payoutTest{accountID: 3067217212005815564, pending: 21295417652217962},
+		payoutTest{accountID: 4178435038671311527, pending: 67737110355935720},
+		payoutTest{accountID: 6100829522519595162, pending: 18137588390776126},
+		payoutTest{accountID: 6169956023417780494, pending: 29540704892884712},
+		payoutTest{accountID: 6243707736557520471, pending: 51324614362346476},
+		payoutTest{accountID: 7507988408288363623, pending: 69970449375102232},
+		payoutTest{accountID: 8250979845441804655, pending: 20806639806320324},
+		payoutTest{accountID: 8592651794553200138, pending: 1649699681609661},
+		payoutTest{accountID: 8686227335924170201, pending: 250639201383818064},
+		payoutTest{accountID: 9165284897249185526, pending: 40212167866650832},
+		payoutTest{accountID: 9447004673583704489, pending: 74140093434441372},
+		payoutTest{accountID: 9757141626099527869, pending: 79261842946506432},
+		payoutTest{accountID: 10687838508612871566, pending: 283464053612433856},
+		payoutTest{accountID: 10935959635383237674, pending: 6052420509362500},
+		payoutTest{accountID: 11630363547276803744, pending: 42381898004782368},
+		payoutTest{accountID: 11637150301806051004, pending: 209141571786338304},
+		payoutTest{accountID: 11761389500302869934, pending: 2140117351269440},
+		payoutTest{accountID: 12278206983598792983, pending: 1577888191138711},
+		payoutTest{accountID: 12363500838372504422, pending: 34985279497420164},
+		payoutTest{accountID: 12928637019172325739, pending: 42684028646773166},
+		payoutTest{accountID: 13157090715783031796, pending: 146279330321337880},
+		payoutTest{accountID: 13807460538344012271, pending: 10343824651802177},
+		payoutTest{accountID: 14250239474703782444, pending: 26372972719956184},
+		payoutTest{accountID: 15213406358388568022, pending: 87790422342119628},
+		payoutTest{accountID: 15444033708938309030, pending: 101199817400838392},
+		payoutTest{accountID: 15743601113927194219, pending: 4383618223779260},
+		payoutTest{accountID: 15918507908837336220, pending: 48239814483707200},
+		payoutTest{accountID: 16592394428697799422, pending: 64687595203802584},
+		payoutTest{accountID: 16724824580964856856, pending: 16931731134867458},
+		payoutTest{accountID: 17025714653385549002, pending: 29231769150797280},
+	}
+
+	for accountID := uint64(0); accountID < 30; accountID++ {
+		payoutTests = append(payoutTests, payoutTest{
+			accountID: accountID,
+			pending:   10000000000000})
+		modelx.db.MustExec(`INSERT INTO account SET
+                    id = ?,
+                    pending = 10000000000000,
+                    address = ?`, accountID, accountID)
+	}
 
 	for _, test := range payoutTests {
-		walletHandlerMock.On("SendPayment", test.accountID, test.pending-Cfg.TxFee).Return(
-			test.accountID, nil)
 		modelx.db.MustExec(`UPDATE account SET
                                       pending = ?,
                                       min_payout_value = ?,
@@ -558,32 +603,32 @@ func TestPayout(t *testing.T) {
 			test.pending, test.minPayoutValue, test.nextPayoutDate, test.payoutInterval, test.accountID)
 	}
 
-	// ignore all other payment calls
-	walletHandlerMock.On("SendPayment", mock.AnythingOfType("uint64"), mock.AnythingOfType("int64")).Return(
-		uint64(0), errors.New("payment failed"))
+	var txsBefore []uint64
+	modelx.db.Select(&txsBefore, "SELECT id FROM transaction")
 
-	modelx.Payout()
+	modelx.createTransactions()
 
-	type transaction struct {
-		ID          uint64
-		Amount      int64
-		RecipientID uint64 `db:"recipient_id"`
-		Created     time.Time
+	var newTxs []int64
+	query, args, _ := sqlx.In(`SELECT id FROM transaction WHERE id NOT IN (?)`, txsBefore)
+	query = modelx.db.Rebind(query)
+	if !assert.Nil(t, modelx.db.Select(&newTxs, query, args...)) ||
+		!assert.Equal(t, 2, len(newTxs), "did not create two new transactions") {
+		return
 	}
+
 	for _, test := range payoutTests {
 		pending := int64(-1)
 		err := modelx.db.Get(&pending, "SELECT pending FROM account WHERE id = ?", test.accountID)
-		if assert.Nil(t, err) {
-			assert.Equal(t, int64(0), pending, "updated pending")
+		if assert.Nil(t, err, "bla", test.accountID) {
+			assert.Equal(t, int64(0), pending, "updated pending", test.accountID)
 		}
 
-		tx := transaction{}
-		err = modelx.db.Get(&tx, `SELECT * FROM transaction WHERE id = ?`,
-			test.accountID)
+		var amount int64
+		err = modelx.db.Get(&amount, `SELECT amount FROM transaction_recipient WHERE
+                    (transaction_id = ? OR transaction_id = ?) AND
+                     recipient_id = ?`, newTxs[0], newTxs[1], test.accountID)
 		if assert.Nil(t, err) {
-			assert.Equal(t, tx.ID, test.accountID, "tx id wrong")
-			assert.Equal(t, tx.Amount, test.pending-Cfg.TxFee, "tx amount wrong")
-			assert.Equal(t, tx.RecipientID, test.accountID, "recipient id amount wrong")
+			assert.Equal(t, test.pending-Cfg.TxFee, amount, "amount in tx wrong")
 		}
 
 		// check cache for this account
@@ -606,12 +651,41 @@ func TestPayout(t *testing.T) {
 			}
 		}
 	}
+
+	var feeAcountPending int64
+	err := modelx.db.Get(&feeAcountPending, `SELECT pending FROM account WHERE id = ?`, Cfg.FeeAccountID)
+	if assert.Nil(t, err) {
+		assert.Equal(t, int64(44507000500), feeAcountPending, "increased pending for fee account correctly")
+	}
+
+	var txCount, multiIdx, singleIdx int
+	modelx.db.Get(&txCount, "SELECT COUNT(*) FROM transaction_recipient WHERE transaction_id = ?", newTxs[0])
+	var txID *uint64
+	if txCount == 1 {
+		multiIdx = 1
+		singleIdx = 0
+	} else {
+		multiIdx = 0
+		singleIdx = 1
+	}
+	walletHandlerMock.On("SendPayment", mock.Anything, mock.Anything).Return(uint64(1), nil)
+	walletHandlerMock.On("SendPayments", mock.Anything).Return(uint64(2), nil)
+	modelx.sendMoney()
+	err = modelx.db.Get(&txID, "SELECT transaction_id FROM transaction WHERE id = ?", newTxs[singleIdx])
+	if assert.Nil(t, err) && assert.NotNil(t, txID) {
+		assert.Equal(t, uint64(1), *txID)
+	}
+	err = modelx.db.Get(&txID, "SELECT transaction_id FROM transaction WHERE id = ?", newTxs[multiIdx])
+	if assert.Nil(t, err) && assert.NotNil(t, txID) {
+		assert.Equal(t, uint64(2), *txID)
+	}
+
 }
 
 func TestRereadMinerNames(t *testing.T) {
 	accountID := uint64(13517851317125621367)
 	expName := "rico666"
-	walletHandlerMock.On("GetAccountInfo", accountID).Return(&wallet.AccountInfo{Name: expName}, nil)
+	walletHandlerMock.On("GetAccountInfo", accountID).Return(&wallet.GetAccountReply{Name: expName}, nil)
 	walletHandlerMock.On("GetAccountInfo", mock.AnythingOfType("uint64")).Return(nil, errors.New(""))
 
 	modelx.RereadMinerNames()
@@ -753,6 +827,56 @@ func TestSetMinPayout(t *testing.T) {
 	}
 
 	// TODO: second time
+}
+
+func TestValidateTransactions(t *testing.T) {
+	txs := []uint64{17204890824727593469, 18229332154218210617, 16866907143315583784, 1337, 10899586909738602132}
+	for _, tx := range txs {
+		modelx.db.MustExec("UPDATE transaction SET block_height = NULL WHERE transaction_id = ?", tx)
+	}
+	// new transaction should not be validated
+	modelx.db.MustExec("UPDATE transaction SET created = ? WHERE transaction_id = ?", time.Now(), txs[4])
+	walletHandlerMock.On("GetTransaction", txs[0]).Return(nil, errors.New("Unknown transaction"))
+	walletHandlerMock.On("GetTransaction", txs[1]).Return(nil, errors.New("some network error"))
+	walletHandlerMock.On("GetTransaction", txs[2]).Return(&wallet.GetTransactionReply{
+		Height: 492826}, nil)
+	// block not anymore in db
+	walletHandlerMock.On("GetTransaction", txs[3]).Return(&wallet.GetTransactionReply{
+		Height: 1337}, nil)
+
+	modelx.validateTransactions()
+
+	var height, tx *uint64
+	modelx.db.Get(&height, "SELECT block_height FROM transaction WHERE transaction_id = ?", txs[0])
+	modelx.db.Get(&tx, "SELECT transaction_id FROM transaction WHERE transaction_id = ?", txs[0])
+	assert.Nil(t, height)
+	assert.Nil(t, tx)
+
+	modelx.db.Get(&height, "SELECT block_height FROM transaction WHERE transaction_id = ?", txs[1])
+	modelx.db.Get(&tx, "SELECT transaction_id FROM transaction WHERE transaction_id = ?", txs[1])
+	assert.Nil(t, height)
+	if assert.NotNil(t, tx) {
+		assert.Equal(t, txs[1], *tx)
+	}
+
+	modelx.db.Get(&height, "SELECT block_height FROM transaction WHERE transaction_id = ?", txs[2])
+	modelx.db.Get(&tx, "SELECT transaction_id FROM transaction WHERE transaction_id = ?", txs[2])
+	if assert.NotNil(t, tx) && assert.NotNil(t, height) {
+		assert.Equal(t, uint64(492826), *height)
+		assert.Equal(t, txs[2], *tx)
+	}
+
+	err := modelx.db.Get(&tx, "SELECT transaction_id FROM transaction WHERE transaction_id = ?", txs[3])
+	if assert.NotNil(t, err) {
+		assert.Equal(t, sql.ErrNoRows, err)
+	}
+
+	modelx.db.Get(&height, "SELECT block_height FROM transaction WHERE transaction_id = ?", txs[4])
+	modelx.db.Get(&tx, "SELECT transaction_id FROM transaction WHERE transaction_id = ?", txs[4])
+	assert.Nil(t, height)
+	if assert.NotNil(t, tx) {
+		assert.Equal(t, txs[4], *tx)
+	}
 }
 
 func TestWeightDeadline(t *testing.T) {

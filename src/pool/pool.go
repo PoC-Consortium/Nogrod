@@ -16,7 +16,7 @@ import (
 	"runtime"
 	"strconv"
 	"time"
-	"wallet"
+	"wallethandler"
 
 	"github.com/throttled/throttled"
 	"github.com/throttled/throttled/store/memstore"
@@ -34,7 +34,7 @@ const (
 
 type Pool struct {
 	modelx                 *Modelx
-	walletHandler          wallet.WalletHandler
+	walletHandler          wallethandler.WalletHandler
 	nonceSubmissions       chan *NonceSubmission
 	deadlineRequestHandler *burstmath.DeadlineRequestHandler
 }
@@ -44,7 +44,7 @@ type nodeServer struct {
 	nonceSubmissions chan *NonceSubmission
 }
 
-func NewPool(modelx *Modelx, walletHandler wallet.WalletHandler) *Pool {
+func NewPool(modelx *Modelx, walletHandler wallethandler.WalletHandler) *Pool {
 	pool := &Pool{
 		walletHandler:          walletHandler,
 		modelx:                 modelx,
@@ -112,22 +112,16 @@ func (pool *Pool) forge(currentBlock Block) {
 
 func (pool *Pool) submitNonce(nonceSubmission *NonceSubmission) {
 	Logger.Info("submitting best nonce")
-	tries := 0
-RETRY:
-	walletDeadline, err := pool.walletHandler.SubmitNonce(nonceSubmission.Nonce, nonceSubmission.MinerID)
-	if err != nil {
-		if tries < nonceSubmissionRetries {
-			tries++
-			Logger.Error("Submitting nonce failed", zap.Int("try", tries),
-				zap.Int("max-tries", nonceSubmissionRetries))
-			goto RETRY
+	for try := 0; try < nonceSubmissionRetries; try++ {
+		err := pool.walletHandler.SubmitNonce(nonceSubmission.Nonce, nonceSubmission.MinerID,
+			nonceSubmission.Deadline)
+		if err == nil {
+			return
 		}
-		Logger.Error("Submitting nonce failed - finally")
-	} else if walletDeadline != nonceSubmission.Deadline {
-		Logger.Error("Pool deadline doesn't match wallet's deadline",
-			zap.Uint64("deadline-pool", nonceSubmission.Deadline),
-			zap.Uint64("deadline-wallet", walletDeadline))
+		Logger.Error("Submitting nonce failed", zap.Int("try", try),
+			zap.Int("max-tries", nonceSubmissionRetries))
 	}
+	Logger.Error("Submitting nonce failed", zap.Int("max-tries", nonceSubmissionRetries))
 }
 
 func (pool *Pool) checkAndAddNewBlock() {
@@ -225,12 +219,8 @@ func (pool *Pool) processSubmitNonceRequest(w http.ResponseWriter, req *http.Req
 		zap.Uint64("nonce", nonce))
 
 	// Check if the reward recepient is correct and cache it for this round
-	correctRewardRecepient, err := pool.modelx.IsPoolRewardRecipient(accountID)
-	if err != nil {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write(formatJSONError(1014, "Account's reward recipient couldn't be determined"))
-		return
-	} else if !correctRewardRecepient {
+	correctRewardRecepient, _ := Cache.IsRewardRecipient(accountID)
+	if !correctRewardRecepient {
 		w.WriteHeader(http.StatusForbidden)
 		w.Write(formatJSONError(1004, "Account's reward recipient doesn't match the pool's"))
 		requestLogger.Warn("reward recipient doesn't match pools", zap.Uint64("accountID", accountID))
@@ -262,10 +252,7 @@ func (pool *Pool) processSubmitNonceRequest(w http.ResponseWriter, req *http.Req
 
 	requestLogger.Info("valid deadline", zap.Uint64("deadline", deadline))
 
-	deadlineResp, _ := json.Marshal(wallet.NonceInfoResponse{
-		Deadline: deadline,
-		Result:   "success"})
-	w.Write(deadlineResp)
+	w.Write([]byte(fmt.Sprintf("{\"deadline\":%d,\"result\":\"success\"}", deadline)))
 
 	err = pool.modelx.UpdateOrCreateNonceSubmission(miner, ri.Height, deadline, nonce, ri.BaseTarget, "")
 	if err != nil {

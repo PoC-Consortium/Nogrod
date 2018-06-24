@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"goburst/burstmath"
 	"goburst/rsencoding"
+	"goburst/wallet"
 	. "logger"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
-	"wallet"
+	"wallethandler"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate"
@@ -84,7 +86,7 @@ type Transaction struct {
 type Modelx struct {
 	db            *sqlx.DB
 	walletDB      *sqlx.DB
-	walletHandler wallet.WalletHandler
+	walletHandler wallethandler.WalletHandler
 
 	newBlockMu sync.Mutex
 }
@@ -109,22 +111,28 @@ type WonBlock struct {
 	Reward        float64 `db:"reward"`
 }
 
-func NewModelX(walletHandler wallet.WalletHandler) *Modelx {
-	db, err := initializeDatabase()
+type PendingInfo struct {
+	ID             uint64
+	PayoutInterval sql.NullString `db:"payout_interval"`
+	Pending        int64
+}
 
+func NewModelX(walletHandler wallethandler.WalletHandler, migrateDB bool) *Modelx {
+	db, err := initializeDatabase(migrateDB)
 	if err != nil {
 		Logger.Fatal("failed to connect to database", zap.Error(err))
 	}
-
-	walletDB, err := sqlx.Connect("mysql", Cfg.WalletDB.DataSourceName(true))
-	if err != nil {
-		Logger.Fatal("failed to connect to database", zap.Error(err))
-	}
-
 	modelx := Modelx{
 		db:            db,
-		walletDB:      walletDB,
 		walletHandler: walletHandler}
+
+	if Cfg.WalletDB.Name != "" {
+		walletDB, err := sqlx.Connect("mysql", Cfg.WalletDB.DataSourceName(true))
+		if err != nil {
+			Logger.Fatal("failed to connect to database", zap.Error(err))
+		}
+		modelx.walletDB = walletDB
+	}
 
 	if Cfg.FeeAccountID != 0 {
 		modelx.createFeeAccount()
@@ -133,6 +141,7 @@ func NewModelX(walletHandler wallet.WalletHandler) *Modelx {
 	loaded := modelx.loadCurrentBlock()
 	if loaded {
 		modelx.cacheMiners()
+		modelx.cacheRewardRecipients()
 	} else {
 		miningInfo, err := modelx.walletHandler.GetMiningInfo()
 		if err != nil {
@@ -148,7 +157,7 @@ func NewModelX(walletHandler wallet.WalletHandler) *Modelx {
 	return &modelx
 }
 
-func initializeDatabase() (*sqlx.DB, error) {
+func initializeDatabase(migrateDB bool) (*sqlx.DB, error) {
 	tmpdb, err := sqlx.Connect("mysql", Cfg.DB.DataSourceName(false))
 
 	if err != nil {
@@ -165,6 +174,9 @@ func initializeDatabase() (*sqlx.DB, error) {
 	db, err := sqlx.Connect("mysql", Cfg.DB.DataSourceName(true))
 	if err != nil {
 		Logger.Fatal("failed to connect to sql server", zap.Error(err))
+	}
+	if !migrateDB {
+		return db, err
 	}
 
 	driver, err := mysql.WithInstance(db.DB, &mysql.Config{})
@@ -495,7 +507,7 @@ func (modelx *Modelx) NewBlock(baseTarget uint64, genSig string, height uint64) 
 	})
 
 	if newBlock.Height != 0 {
-		modelx.CacheRewardRecipients()
+		modelx.cacheRewardRecipients()
 		Cache.StoreCurrentBlock(newBlock)
 	}
 
@@ -829,7 +841,7 @@ func (modelx *Modelx) GetSharesOnBlock(height uint64) (map[uint64]float64, error
 	return shareOf, nil
 }
 
-func (modelx *Modelx) rewardBlock(blockInfo *wallet.BlockInfo) {
+func (modelx *Modelx) rewardBlock(blockInfo *wallet.GetBlockReply) {
 	shareInPlanckOf := make(map[uint64]int64)
 	totalReward := blockInfo.BlockReward*100000000 + blockInfo.TotalFeeNQT
 	reward := totalReward
@@ -851,7 +863,7 @@ func (modelx *Modelx) rewardBlock(blockInfo *wallet.BlockInfo) {
 
 	for accountID, share := range shareOf {
 		shareInPlanck := round(share * float64(reward))
-		if accountID == blockInfo.GeneratorID {
+		if accountID == blockInfo.Generator {
 			shareInPlanck += winnerReward
 		}
 		shareInPlanckOf[accountID] = shareInPlanck
@@ -881,7 +893,7 @@ func (modelx *Modelx) rewardBlock(blockInfo *wallet.BlockInfo) {
 	}
 
 	sql := "UPDATE block SET winner_verified = 1, reward = ?, winner_id = ? WHERE height = ?"
-	if _, err := tx.Exec(sql, totalReward, blockInfo.GeneratorID, blockInfo.Height); err != nil {
+	if _, err := tx.Exec(sql, totalReward, blockInfo.Generator, blockInfo.Height); err != nil {
 		Logger.Error("udpate won block failed", zap.Error(err))
 		tx.Rollback()
 		return
@@ -902,13 +914,90 @@ func (modelx *Modelx) rewardBlock(blockInfo *wallet.BlockInfo) {
 	}
 }
 
-func (modelx *Modelx) Payout() {
-	type PendingInfo struct {
-		ID             uint64
-		PayoutInterval sql.NullString `db:"payout_interval"`
-		Pending        int64
+func (modelx *Modelx) validateTransactions() {
+	var txsToValidate []uint64
+	err := modelx.db.Select(&txsToValidate, `SELECT transaction_id FROM transaction WHERE
+            block_height IS NULL AND
+            created < NOW() - INTERVAL 1 DAY AND
+            transaction_id IS NOT NULL`)
+	if err != nil {
+		Logger.Error("get unconfirmed transactions")
+		return
 	}
+	for _, tx := range txsToValidate {
+		txInfo, err := modelx.walletHandler.GetTransaction(tx)
+		// TODO: suffix is not the most stable way...
+		if err != nil && strings.HasSuffix(err.Error(), "Unknown transaction") {
+			Logger.Warn("tx did not make it into blockchain", zap.Uint64("tx_id", tx))
+			modelx.db.MustExec("UPDATE transaction SET transaction_id = NULL WHERE transaction_id = ?",
+				tx)
+			continue
+		}
+		if err != nil {
+			// network or other error, can't be sure if the transaction made it into the chain
+			continue
+		}
+		modelx.db.MustExec(`
+                    IF EXISTS(SELECT 1 FROM block WHERE height = ?) THEN
+                        UPDATE transaction SET block_height = ? WHERE transaction_id = ?;
+                    ELSE
+                        DELETE FROM transaction WHERE transaction_id = ?;
+                    END IF;`, txInfo.Height, txInfo.Height, tx, tx)
+	}
+}
 
+func (modelx *Modelx) sendMoney() {
+	var txs []uint64
+	err := modelx.db.Select(&txs, `SELECT id FROM transaction WHERE
+            block_height IS NULL AND
+            transaction_id IS NULL`)
+	if err != nil {
+		Logger.Error("fetch transaction ids", zap.Error(err))
+		return
+	}
+	type recipToAmount struct {
+		Recip  uint64 `db:"recipient_id"`
+		Amount int64
+	}
+	for _, tx := range txs {
+		var recipToAmounts []recipToAmount
+		err := modelx.db.Select(&recipToAmounts, `SELECT
+                    recipient_id "recipient_id",
+                    amount       "amount"
+                    FROM transaction_recipient WHERE transaction_id = ?`, tx)
+		if err != nil {
+			Logger.Error("fetch recips and amounts", zap.Error(err))
+			continue
+		}
+		var txID uint64
+		if len(recipToAmounts) == 1 {
+			txID, err = modelx.walletHandler.SendPayment(recipToAmounts[0].Recip,
+				recipToAmounts[0].Amount)
+		} else {
+			idToAmount := make(map[uint64]int64)
+			for _, ra := range recipToAmounts {
+				idToAmount[ra.Recip] = ra.Amount
+			}
+			txID, err = modelx.walletHandler.SendPayments(idToAmount)
+		}
+		if err != nil {
+			Logger.Error("send payment", zap.Error(err))
+			continue
+		}
+		modelx.db.MustExec(`UPDATE transaction SET transaction_id = ? WHERE id = ?`, txID, tx)
+	}
+}
+
+func (modelx *Modelx) Payout() {
+	// TODO: probably we should validate transactions first, then
+	// delete transactions and increase pendings so that
+	// we pack more transactions into multi outs
+	modelx.createTransactions()
+	modelx.validateTransactions()
+	modelx.sendMoney()
+}
+
+func (modelx *Modelx) createTransactions() {
 	var pendingInfos []PendingInfo
 	sql := `SELECT
                   id,
@@ -923,60 +1012,114 @@ func (modelx *Modelx) Payout() {
 		Cfg.TxFee,
 		Cfg.MinimumPayout+Cfg.TxFee)
 	if err != nil {
-		Logger.Error("fetching miners for payout failed", zap.Error(err))
+		Logger.Error("fetch pending infos", zap.Error(err))
+		return
+	}
+
+	if len(pendingInfos) == 0 {
+		return
+	}
+
+	tx, err := modelx.db.Begin()
+	if err != nil {
+		Logger.Error("begin payBlock transaction", zap.Error(err))
+		return
+	}
+
+	pendingUpdateStmt, err := tx.Prepare("UPDATE account SET pending = pending - ? WHERE id = ?")
+	if err != nil {
+		Logger.Error("prepare pending update stmt", zap.Error(err))
+		return
+	}
+	payoutIntervalUpdateStmt, err := tx.Prepare("UPDATE account SET next_payout_date = ? WHERE id = ?")
+	if err != nil {
+		Logger.Error("prepare payout interval update stmt", zap.Error(err))
+		return
+	}
+
+	newTransactionStmt, err := tx.Prepare(`INSERT INTO transaction_recipient
+            (transaction_id, recipient_id, amount)
+            VALUES(?, ?, ?)`)
+	if err != nil {
+		Logger.Error("prepare new transaction stmt", zap.Error(err))
+		return
+	}
+
+	var numberTxsToCreate int
+	if len(pendingInfos)%wallet.MaxMultiRecipients == 0 {
+		numberTxsToCreate = len(pendingInfos) / wallet.MaxMultiRecipients
+	} else {
+		numberTxsToCreate = len(pendingInfos)/wallet.MaxMultiRecipients + 1
+	}
+
+	var dbTxIDs []int64
+	for i := 0; i < numberTxsToCreate; i++ {
+		res, err := tx.Exec("INSERT INTO transaction (id) VALUES(NULL)")
+		if err != nil {
+			tx.Rollback()
+			Logger.Error("create transaction", zap.Error(err))
+			return
+		}
+		id, err := res.LastInsertId()
+		if err != nil {
+			tx.Rollback()
+			Logger.Error("get db tx id", zap.Error(err))
+			return
+		}
+		dbTxIDs = append(dbTxIDs, id)
+	}
+
+	for i, pendingInfo := range pendingInfos {
+		_, err := pendingUpdateStmt.Exec(pendingInfo.Pending, pendingInfo.ID)
+		if err != nil {
+			Logger.Error("update pending", zap.Error(err))
+			tx.Rollback()
+			return
+		}
+
+		if pendingInfo.PayoutInterval.Valid {
+			switch pendingInfo.PayoutInterval.String {
+			case "weekly":
+				_, err = payoutIntervalUpdateStmt.Exec(time.Now().AddDate(0, 0, 7),
+					pendingInfo.ID)
+			case "daily":
+				_, err = payoutIntervalUpdateStmt.Exec(time.Now().AddDate(0, 0, 1),
+					pendingInfo.ID)
+			case "now":
+				_, err = payoutIntervalUpdateStmt.Exec(nil, pendingInfo.ID)
+			}
+
+			if err != nil {
+				Logger.Error("update next_payout_date", zap.Error(err))
+				tx.Rollback()
+				return
+			}
+		}
+
+		// after 64, we need to go to the next tx
+		_, err = newTransactionStmt.Exec(dbTxIDs[int(i/wallet.MaxMultiRecipients)],
+			pendingInfo.ID, pendingInfo.Pending-Cfg.TxFee)
+		if err != nil {
+			Logger.Error("create transaction recipient", zap.Error(err))
+			tx.Rollback()
+			return
+		}
+
+	}
+
+	_, err = tx.Exec("UPDATE account SET pending = pending + ? WHERE id = ?",
+		int64((len(pendingInfos)-numberTxsToCreate))*Cfg.TxFee, Cfg.FeeAccountID)
+	if err != nil {
+		Logger.Error("increase fee account pending", zap.Error(err))
+		tx.Rollback()
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
 		return
 	}
 
 	for _, pendingInfo := range pendingInfos {
-		tx, err := modelx.db.Begin()
-		if err != nil {
-			Logger.Error("beginning payBlock transaction failed", zap.Error(err))
-			continue
-		}
-
-		sql := "UPDATE account SET pending = pending - ? WHERE id = ?"
-		if _, err = tx.Exec(sql, pendingInfo.Pending, pendingInfo.ID); err != nil {
-			Logger.Error("decreasing pending failed", zap.Error(err))
-			tx.Rollback()
-			continue
-		}
-
-		if pendingInfo.PayoutInterval.Valid {
-			sql := "UPDATE account SET next_payout_date = ? WHERE id = ?"
-			var err error
-			switch pendingInfo.PayoutInterval.String {
-			case "weekly":
-				_, err = tx.Exec(sql, time.Now().AddDate(0, 0, 7), pendingInfo.ID)
-			case "daily":
-				_, err = tx.Exec(sql, time.Now().AddDate(0, 0, 1), pendingInfo.ID)
-			case "now":
-				_, err = tx.Exec(sql, nil, pendingInfo.ID)
-			}
-
-			if err != nil {
-				Logger.Error("failed to update next_payout_date", zap.Error(err))
-				tx.Rollback()
-				continue
-			}
-		}
-
-		txID, err := modelx.walletHandler.SendPayment(pendingInfo.ID, pendingInfo.Pending-Cfg.TxFee)
-		if err != nil {
-			tx.Rollback()
-			continue
-		}
-
-		sql = "INSERT INTO transaction (id, amount, recipient_id) VALUES (?, ?, ?)"
-		if _, err = tx.Exec(sql, txID, pendingInfo.Pending-Cfg.TxFee, pendingInfo.ID); err != nil {
-			Logger.Error("creating transaction failed", zap.Error(err))
-			tx.Rollback()
-			continue
-		}
-
-		if err := tx.Commit(); err != nil {
-			Logger.Error("payout transaction failed", zap.Error(err))
-		}
-
 		if cachedMiner := Cache.GetMiner(pendingInfo.ID); cachedMiner != nil {
 			cachedMiner.Lock()
 			cachedMiner.Pending -= pendingInfo.Pending
@@ -1007,25 +1150,6 @@ func (modelx *Modelx) GetRecentlyWonBlocks() []WonBlock {
 	return wonBlocks
 }
 
-func (modelx *Modelx) IsPoolRewardRecipient(accountID uint64) (bool, error) {
-	var isCorrect bool
-
-	// try a cache lookup
-	isCorrect, cached := Cache.IsRewardRecipient(accountID)
-	if cached {
-		return isCorrect, nil
-	}
-
-	// try to find in wallet db
-	sql := `SELECT 1 FROM reward_recip_assign
-                          WHERE account_id = CAST(? AS SIGNED) AND recip_id = CAST(? AS SIGNED) AND latest = 1 LIMIT 1`
-
-	// ignore error no rows in resultset
-	modelx.walletDB.Get(&isCorrect, sql, accountID, Cfg.PoolPublicID)
-	Cache.StoreRewardRecipient(accountID, isCorrect)
-	return isCorrect, nil
-}
-
 func (modelx *Modelx) getGenerationTime(height uint64) (int32, error) {
 	// TODO: timestamp of block isn't available fast enough
 	// 	var timestamps []int32
@@ -1038,24 +1162,32 @@ func (modelx *Modelx) getGenerationTime(height uint64) (int32, error) {
 	return modelx.walletHandler.GetGenerationTime(height)
 }
 
-func (modelx *Modelx) CacheRewardRecipients() {
-	var validAccoundIDs []uint64
-	rewardRecipient := make(map[uint64]bool)
-	defer Cache.StoreRewardRecipients(rewardRecipient)
+func (modelx *Modelx) cacheRewardRecipients() {
+	if !modelx.isConnectedToWalletDB() {
+		recips, err := modelx.walletHandler.GetRewardRecipients()
+		if err != nil {
+			Logger.Error("failed to get rewrad recipients", zap.Error(err))
+			return
+		}
+		Cache.StoreRewardRecipients(recips)
+		return
+	}
 
+	var validAccoundIDs []uint64
 	sql := `SELECT CAST(account_id AS UNSIGNED)
                   FROM reward_recip_assign
                   WHERE recip_id = CAST(? AS SIGNED) AND latest = 1`
-
 	err := modelx.walletDB.Select(&validAccoundIDs, sql, Cfg.PoolPublicID)
 	if err != nil {
 		Logger.Error("failed caching reward recipients", zap.Error(err))
 		return
 	}
 
+	recips := make(map[uint64]bool)
 	for _, accoundID := range validAccoundIDs {
-		rewardRecipient[accoundID] = true
+		recips[accoundID] = true
 	}
+	Cache.StoreRewardRecipients(recips)
 }
 
 func (modelx *Modelx) GetAVGNetDiff(n uint) float64 {
@@ -1205,6 +1337,10 @@ func (modelx *Modelx) SetMinPayout(msgOf map[uint64]string) {
 			miner.Unlock()
 		}
 	}
+}
+
+func (modelx *Modelx) isConnectedToWalletDB() bool {
+	return modelx.walletDB != nil
 }
 
 func weightDeadline(deadline, baseTarget uint64) float64 {
