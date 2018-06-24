@@ -16,7 +16,7 @@ func main() {
 
 	walletHandler := wallethandler.NewWalletHandler(Cfg.WalletUrls, Cfg.SecretPhrase, Cfg.WalletTimeoutDur,
 		Cfg.TrustAllWalletCerts)
-	modelx := modelx.NewModelX(walletHandler)
+	modelx := modelx.NewModelX(walletHandler, true)
 
 	webServer := webserver.NewWebServer(modelx)
 	webServer.Run()
