@@ -183,7 +183,7 @@ func (wh *walletHandler) GetAccountInfo(accountID uint64) (*wallet.GetAccountRep
 	return obj.(*wallet.GetAccountReply), nil
 }
 
-func (wh *walletHandler) WonBlock(height uint64, minerID, nonce uint64) (bool, *wallet.GetBlockReply, error) {
+func (wh *walletHandler) WonBlock(height, minerID, nonce uint64) (bool, *wallet.GetBlockReply, error) {
 	// we also need to check the nonce, to be sure that it was submitted from the pool
 	blockInfo, err := wh.GetBlockInfo(height)
 	if err != nil {
