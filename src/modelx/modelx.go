@@ -984,7 +984,8 @@ func (modelx *Modelx) sendMoney() {
 			Logger.Error("send payment", zap.Error(err))
 			continue
 		}
-		modelx.db.MustExec(`UPDATE transaction SET transaction_id = ? WHERE id = ?`, txID, tx)
+		modelx.db.MustExec(`UPDATE transaction SET transaction_id = ?,
+                                                           created = NOW() WHERE id = ?`, txID, tx)
 	}
 }
 
