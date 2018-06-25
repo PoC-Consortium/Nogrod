@@ -118,10 +118,6 @@ func validateConfig() {
 		Cfg.WalletDB.Port = 3306
 	}
 
-	if Cfg.WalletDB.User == "" {
-		Logger.Fatal("'walletDB.User' can't be empty")
-	}
-
 	if Cfg.FeeAccountID == 0 && Cfg.PoolFeeShare > 0.0 {
 		Logger.Fatal("'feeAccountId' can't be empty if PoolFee is over 0.0")
 	}
