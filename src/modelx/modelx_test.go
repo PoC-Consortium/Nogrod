@@ -836,13 +836,13 @@ func TestValidateTransactions(t *testing.T) {
 	}
 	// new transaction should not be validated
 	modelx.db.MustExec("UPDATE transaction SET created = ? WHERE transaction_id = ?", time.Now(), txs[4])
-	walletHandlerMock.On("GetTransaction", txs[0]).Return(nil, errors.New("Unknown transaction"))
-	walletHandlerMock.On("GetTransaction", txs[1]).Return(nil, errors.New("some network error"))
+	walletHandlerMock.On("GetTransaction", txs[0]).Return(nil, true, errors.New("Unknown transaction"))
+	walletHandlerMock.On("GetTransaction", txs[1]).Return(nil, false, errors.New("some network error"))
 	walletHandlerMock.On("GetTransaction", txs[2]).Return(&wallet.GetTransactionReply{
-		Height: 492826}, nil)
+		Height: 492826}, true, nil)
 	// block not anymore in db
 	walletHandlerMock.On("GetTransaction", txs[3]).Return(&wallet.GetTransactionReply{
-		Height: 1337}, nil)
+		Height: 1337}, true, nil)
 
 	modelx.validateTransactions()
 

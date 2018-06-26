@@ -13,7 +13,6 @@ import (
 	. "logger"
 	"math"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 	"wallethandler"
@@ -925,16 +924,15 @@ func (modelx *Modelx) validateTransactions() {
 		return
 	}
 	for _, tx := range txsToValidate {
-		txInfo, err := modelx.walletHandler.GetTransaction(tx)
-		// TODO: suffix is not the most stable way...
-		if err != nil && strings.HasSuffix(err.Error(), "Unknown transaction") {
-			Logger.Warn("tx did not make it into blockchain", zap.Uint64("tx_id", tx))
-			modelx.db.MustExec("UPDATE transaction SET transaction_id = NULL WHERE transaction_id = ?",
-				tx)
+		txInfo, querySuccessful, err := modelx.walletHandler.GetTransaction(tx)
+		if !querySuccessful {
+			// network or other error, can't be sure if the transaction made it into the chain
 			continue
 		}
 		if err != nil {
-			// network or other error, can't be sure if the transaction made it into the chain
+			Logger.Warn("tx did not make it into blockchain", zap.Uint64("tx_id", tx))
+			modelx.db.MustExec("UPDATE transaction SET transaction_id = NULL WHERE transaction_id = ?",
+				tx)
 			continue
 		}
 		modelx.db.MustExec(`

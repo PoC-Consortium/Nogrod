@@ -105,6 +105,17 @@ func (suite *walletTestSuite) TestGetIncomingMsgsSince() {
 	}
 }
 
+func (suite *walletTestSuite) TestGetTransaction() {
+	txInfo, querySuccessful, err := suite.wh.GetTransaction(1)
+	assert.True(suite.T(), querySuccessful)
+	assert.NotNil(suite.T(), err)
+	assert.Nil(suite.T(), txInfo)
+	txInfo, querySuccessful, err = suite.wh.GetTransaction(16409086240127269435)
+	assert.True(suite.T(), querySuccessful)
+	assert.Nil(suite.T(), err)
+	assert.NotNil(suite.T(), txInfo)
+}
+
 func TestWalletSuite(t *testing.T) {
 	tests := new(walletTestSuite)
 	suite.Run(t, tests)

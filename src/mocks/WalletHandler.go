@@ -147,7 +147,7 @@ func (_m *WalletHandler) GetRewardRecipients() (map[uint64]bool, error) {
 }
 
 // GetTransaction provides a mock function with given fields: _a0
-func (_m *WalletHandler) GetTransaction(_a0 uint64) (*wallet.GetTransactionReply, error) {
+func (_m *WalletHandler) GetTransaction(_a0 uint64) (*wallet.GetTransactionReply, bool, error) {
 	ret := _m.Called(_a0)
 
 	var r0 *wallet.GetTransactionReply
@@ -159,14 +159,21 @@ func (_m *WalletHandler) GetTransaction(_a0 uint64) (*wallet.GetTransactionReply
 		}
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(uint64) error); ok {
+	var r1 bool
+	if rf, ok := ret.Get(1).(func(uint64) bool); ok {
 		r1 = rf(_a0)
 	} else {
-		r1 = ret.Error(1)
+		r1 = ret.Get(1).(bool)
 	}
 
-	return r0, r1
+	var r2 error
+	if rf, ok := ret.Get(2).(func(uint64) error); ok {
+		r2 = rf(_a0)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // SendPayment provides a mock function with given fields: _a0, _a1

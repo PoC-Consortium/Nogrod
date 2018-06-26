@@ -9,6 +9,7 @@ import (
 	"goburst/burstmath"
 	"goburst/wallet"
 	. "logger"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,7 +27,7 @@ type WalletHandler interface {
 	GetGenerationTime(height uint64) (int32, error)
 	GetIncomingMsgsSince(date time.Time) (map[uint64]string, error)
 	GetRewardRecipients() (map[uint64]bool, error)
-	GetTransaction(uint64) (*wallet.GetTransactionReply, error)
+	GetTransaction(uint64) (*wallet.GetTransactionReply, bool, error)
 }
 
 type walletHandler struct {
@@ -252,12 +253,21 @@ func (wh *walletHandler) GetRewardRecipients() (map[uint64]bool, error) {
 	return recips, nil
 }
 
-func (wh *walletHandler) GetTransaction(txID uint64) (*wallet.GetTransactionReply, error) {
+func (wh *walletHandler) GetTransaction(txID uint64) (*wallet.GetTransactionReply, bool, error) {
+	var querySuccessful bool
+	var mu sync.Mutex
 	res, err := wh.reqRandom(func(w wallet.Wallet) (interface{}, error) {
-		return w.GetTransaction(&wallet.GetTransactionRequest{Transaction: txID})
+		obj, err := w.GetTransaction(&wallet.GetTransactionRequest{Transaction: txID})
+		// TODO: suffix is not the most stable way...
+		if err == nil || strings.HasSuffix(err.Error(), "Unknown transaction") {
+			mu.Lock()
+			querySuccessful = true
+			mu.Unlock()
+		}
+		return obj, err
 	})
 	if err != nil {
-		return nil, err
+		return nil, querySuccessful, err
 	}
-	return res.(*wallet.GetTransactionReply), nil
+	return res.(*wallet.GetTransactionReply), querySuccessful, nil
 }
