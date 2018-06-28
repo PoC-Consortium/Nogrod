@@ -18,7 +18,13 @@
 
 1. Edit config (see config section for settings)
 
-2. Run make
+2. Create user for db (as set in the config)
+
+``` shellsession
+CREATE USER 'newuser'@'localhost' IDENTIFIED BY 'password';
+```
+
+3. Run make
 
 ``` shellsession
 make
