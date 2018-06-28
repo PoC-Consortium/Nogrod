@@ -62,6 +62,9 @@ table.dataTable {
 
 td {
     white-space: nowrap;
+    max-width: 400;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 th {
