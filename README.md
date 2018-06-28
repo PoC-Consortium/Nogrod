@@ -21,7 +21,7 @@
 2. Create user for db (as set in the config)
 
 ``` shellsession
-CREATE USER 'newuser'@'localhost' IDENTIFIED BY 'password';
+echo CREATE USER 'newuser'@'localhost' IDENTIFIED BY 'password' | mysql -uroot;
 ```
 
 3. Run make
