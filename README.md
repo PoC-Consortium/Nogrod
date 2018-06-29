@@ -8,6 +8,7 @@
 - can use multiple wallets as backends using the wallet API
 - can talk directly to wallet database
 - dynamic payout thresholds/intervals based on messages on the blockchain
+- multiout payments
 
 ## Requirements
 
