@@ -982,6 +982,13 @@ func (modelx *Modelx) sendMoney() {
 			Logger.Error("send payment", zap.Error(err))
 			continue
 		}
+		// TODO: if this fails then there is the risk of a double payout
+		// the only way that I can think of avoiding this currently is:
+		// 1. update a new field (e.g. prepare) in a must exec statement before sending the money
+		// 2. check if there are transactions without transaction_ids but with the prepare field set
+		// 3. check for recent transactions of the account in the blockchain, where we did not save any
+		//    transaction_ids
+		// 4. analyse those transactions and update the transation_id field if needed
 		modelx.db.MustExec(`UPDATE transaction SET transaction_id = ?,
                                                            created = NOW() WHERE id = ?`, txID, tx)
 	}
