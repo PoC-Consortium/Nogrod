@@ -28,6 +28,7 @@ type WalletHandler interface {
 	GetIncomingMsgsSince(date time.Time) (map[uint64]string, error)
 	GetRewardRecipients() (map[uint64]bool, error)
 	GetTransaction(uint64) (*wallet.GetTransactionReply, bool, error)
+	CalcOptimalTxFee(uint64) (int64, error)
 }
 
 type walletHandler struct {
@@ -270,4 +271,16 @@ func (wh *walletHandler) GetTransaction(txID uint64) (*wallet.GetTransactionRepl
 		return nil, querySuccessful, err
 	}
 	return res.(*wallet.GetTransactionReply), querySuccessful, nil
+}
+
+func (wh *walletHandler) CalcOptimalTxFee(height uint64) (int64, error) {
+	var txCount int64
+	for h := height - 11; h < height-1; h++ {
+		blockInfo, err := wh.GetBlockInfo(h)
+		if err != nil {
+			return 0, err
+		}
+		txCount += int64(blockInfo.NumberOfTransactions)
+	}
+	return 735000 * (txCount/10 + 1), nil
 }

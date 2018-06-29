@@ -10,6 +10,27 @@ type WalletHandler struct {
 	mock.Mock
 }
 
+// CalcOptimalTxFee provides a mock function with given fields: _a0
+func (_m *WalletHandler) CalcOptimalTxFee(_a0 uint64) (int64, error) {
+	ret := _m.Called(_a0)
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func(uint64) int64); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(uint64) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetAccountInfo provides a mock function with given fields: _a0
 func (_m *WalletHandler) GetAccountInfo(_a0 uint64) (*wallet.GetAccountReply, error) {
 	ret := _m.Called(_a0)

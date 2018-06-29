@@ -116,6 +116,13 @@ func (suite *walletTestSuite) TestGetTransaction() {
 	assert.NotNil(suite.T(), txInfo)
 }
 
+func (suite *walletTestSuite) TestCalcOptiomalTxFee() {
+	txFee, err := suite.wh.CalcOptimalTxFee(77406)
+	if assert.Nil(suite.T(), err) {
+		assert.Equal(suite.T(), int64(1470000), txFee)
+	}
+}
+
 func TestWalletSuite(t *testing.T) {
 	tests := new(walletTestSuite)
 	suite.Run(t, tests)
