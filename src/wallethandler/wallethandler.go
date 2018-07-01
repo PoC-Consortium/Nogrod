@@ -146,7 +146,7 @@ func (wh *walletHandler) SendPayment(recipient uint64, amount int64) (uint64, er
 		return w.SendMoney(&wallet.SendMoneyRequest{
 			Recipient:    recipient,
 			Deadline:     1440,
-			FeeNQT:       Cfg.TxFee,
+			FeeNQT:       Cfg.PoolTxFee,
 			AmountNQT:    amount,
 			SecretPhrase: wh.secretPhrase})
 	})
@@ -165,7 +165,7 @@ func (wh *walletHandler) SendPayments(idToAmount map[uint64]int64) (uint64, erro
 		return w.SendMoneyMulti(&wallet.SendMoneyMultiRequest{
 			Recipients:   recipients,
 			Deadline:     1440,
-			FeeNQT:       Cfg.TxFee,
+			FeeNQT:       Cfg.PoolTxFee,
 			SecretPhrase: wh.secretPhrase})
 	})
 	if err != nil {

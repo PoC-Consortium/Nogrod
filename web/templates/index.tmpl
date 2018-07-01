@@ -220,9 +220,9 @@
                 <th>Block Payout Delay: </th><td>{{ .Cfg.BlockHeightPayoutDelay }} Blocks</td>
               </tr>
               <tr>
-                <th>Tx Fee: </th><td><span id="tx-fee"></span></td>
+                <th>Tx Fee: </th><td><span id="miner-tx-fee"></span></td>
                 <script>
-                  $('#tx-fee').text({{ .Cfg.TxFee }} / 100000000);
+                  $('#miner-tx-fee').text({{ .Cfg.MinerTxFee }} / 100000000);
                 </script>
               </tr>
               <tr>

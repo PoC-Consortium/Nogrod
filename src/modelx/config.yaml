@@ -5,8 +5,9 @@ walletUrls:
 shareExponent: 1.2
 poolPublicId: 10282355196851764065
 minimumPayout: 250000000000
-txFee: 100000000
 poolFeeShare: 0.0
+poolTxFee: 10000000
+minerTxFee: 10000000
 deadlineLimit: 10000000000
 walletDB:
   user: "root"

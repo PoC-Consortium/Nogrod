@@ -34,7 +34,8 @@ type Config struct {
 	DB                     DBConfig `yaml:"db"`
 	WalletDB               DBConfig `yaml:"walletDB"`
 	FeeAccountID           uint64   `yaml:"feeAccountId"`
-	TxFee                  int64    `yaml:"txFee"`
+	PoolTxFee              int64    `yaml:"poolTxFee"`
+	MinerTxFee             int64    `yaml:"minerTxFee"`
 	InactiveAfterXBlocks   uint64   `yaml:"inactiveAfterXBlocks"`
 	PoolAddress            string   `yaml:"poolAddress"`
 	PoolListenAddress      string   `yaml:"poolListenAddress"`
@@ -177,9 +178,9 @@ func validateConfig() {
 		Logger.Fatal("'tMin' can't be negativ")
 	}
 
-	if Cfg.TxFee == 0 {
-		Cfg.TxFee = 100000000
-		Logger.Info("Using default 100000000 for Cfg.TxFee")
+	if Cfg.PoolTxFee == 0 {
+		Cfg.PoolTxFee = 10000000
+		Logger.Info("Using default 10000000 for Cfg.PoolTxFee")
 	}
 
 	if Cfg.WalletTimeout <= 0 {

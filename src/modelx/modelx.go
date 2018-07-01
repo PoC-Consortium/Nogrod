@@ -1014,9 +1014,9 @@ func (modelx *Modelx) createTransactions() {
                   (next_payout_date IS NOT NULL AND next_payout_date <= NOW() AND pending >= ?) OR
                   (min_payout_value IS NULL AND next_payout_date IS NULL AND pending >= ?)`
 	err := modelx.db.Select(&pendingInfos, sql,
-		Cfg.TxFee,
-		Cfg.TxFee,
-		Cfg.MinimumPayout+Cfg.TxFee)
+		Cfg.MinerTxFee,
+		Cfg.MinerTxFee,
+		Cfg.MinimumPayout+Cfg.MinerTxFee)
 	if err != nil {
 		Logger.Error("fetch pending infos", zap.Error(err))
 		return
@@ -1104,7 +1104,7 @@ func (modelx *Modelx) createTransactions() {
 
 		// after 64, we need to go to the next tx
 		_, err = newTransactionStmt.Exec(dbTxIDs[int(i/wallet.MaxMultiRecipients)],
-			pendingInfo.ID, pendingInfo.Pending-Cfg.TxFee)
+			pendingInfo.ID, pendingInfo.Pending-Cfg.MinerTxFee)
 		if err != nil {
 			Logger.Error("create transaction recipient", zap.Error(err))
 			tx.Rollback()
@@ -1114,7 +1114,7 @@ func (modelx *Modelx) createTransactions() {
 	}
 
 	_, err = tx.Exec("UPDATE account SET pending = pending + ? WHERE id = ?",
-		int64((len(pendingInfos)-numberTxsToCreate))*Cfg.TxFee, Cfg.FeeAccountID)
+		int64((len(pendingInfos)-numberTxsToCreate))*Cfg.MinerTxFee-Cfg.PoolTxFee, Cfg.FeeAccountID)
 	if err != nil {
 		Logger.Error("increase fee account pending", zap.Error(err))
 		tx.Rollback()

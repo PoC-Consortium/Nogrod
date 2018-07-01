@@ -628,7 +628,7 @@ func TestCreateTransactionsAndSendMoney(t *testing.T) {
                     (transaction_id = ? OR transaction_id = ?) AND
                      recipient_id = ?`, newTxs[0], newTxs[1], test.accountID)
 		if assert.Nil(t, err) {
-			assert.Equal(t, test.pending-Cfg.TxFee, amount, "amount in tx wrong")
+			assert.Equal(t, test.pending-Cfg.PoolTxFee, amount, "amount in tx wrong")
 		}
 
 		// check cache for this account
@@ -655,7 +655,7 @@ func TestCreateTransactionsAndSendMoney(t *testing.T) {
 	var feeAcountPending int64
 	err := modelx.db.Get(&feeAcountPending, `SELECT pending FROM account WHERE id = ?`, Cfg.FeeAccountID)
 	if assert.Nil(t, err) {
-		assert.Equal(t, int64(44507000500), feeAcountPending, "increased pending for fee account correctly")
+		assert.Equal(t, int64(38827000500), feeAcountPending, "increased pending for fee account correctly")
 	}
 
 	var txCount, multiIdx, singleIdx int

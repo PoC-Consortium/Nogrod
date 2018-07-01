@@ -369,7 +369,7 @@ func (webServer *WebServer) GetPoolConfigInfo(ctx context.Context, req *api.Void
 		PoolFeeShare:    Cfg.PoolFeeShare,
 		DeadlineLimit:   Cfg.DeadlineLimit,
 		MinimumPayout:   Cfg.MinimumPayout,
-		TxFee:           Cfg.TxFee,
+		TxFee:           Cfg.PoolTxFee,
 		WinnerShare:     Cfg.WinnerShare,
 		TMin:            Cfg.TMin,
 		NAVG:            int32(Cfg.NAVG),

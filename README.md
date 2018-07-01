@@ -53,8 +53,11 @@ walletUrls:
 # then payout happens
 minimumPayout: 25000000000 # in planck
 
-# txFee used for transaction in planck
-txFee: 100000000
+# txFee pool pays for a transaction
+poolTxFee: 100000000 # in planck
+
+# txFee every miner has to pay for his own transaction
+minerTxFee: 50000000 # in planck
 
 # blocks after blockHeightPayoutDelay will be checked
 # if they were won or not (in order to avoid forks)
