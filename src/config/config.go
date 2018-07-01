@@ -56,6 +56,8 @@ type Config struct {
 	SetMinPayoutFee        int64    `yaml:"setMinPayoutFee"`
 	WalletTimeout          int64    `yaml:"walletTimeout"`
 	WalletTimeoutDur       time.Duration
+	PayoutInterval         int64 `yaml:"payoutInterval"`
+	PayoutIntervalDur      time.Duration
 	TrustAllWalletCerts    bool   `yaml:"trustAllWalletCerts"`
 	NodeComCert            string `yaml:"nodeComCert"`
 }
@@ -189,6 +191,14 @@ func validateConfig() {
 	} else {
 		Cfg.WalletTimeoutDur = time.Duration(Cfg.WalletTimeout) * time.Second
 	}
+
+	if Cfg.PayoutInterval <= 0 {
+		Cfg.PayoutIntervalDur = 10 * time.Minute
+		Logger.Info("Using default 10min for Cfg.PayoutInterval")
+	} else {
+		Cfg.PayoutIntervalDur = time.Duration(Cfg.PayoutInterval) * time.Minute
+	}
+
 }
 
 func (config DBConfig) DataSourceName(includeDatabase bool) string {

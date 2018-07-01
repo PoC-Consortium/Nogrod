@@ -158,7 +158,7 @@ func (pool *Pool) checkAndAddNewBlockJob() {
 }
 
 func (pool *Pool) jobs() {
-	payTicker := time.NewTicker(10 * time.Minute)
+	payTicker := time.NewTicker(Cfg.PayoutIntervalDur)
 	rereadMinerNamesTicker := time.NewTicker(12 * time.Hour)
 	cleanDBTicker := time.NewTicker(24 * time.Hour)
 

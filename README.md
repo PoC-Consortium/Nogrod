@@ -146,6 +146,9 @@ setDailyFee: 200000000
 # fee for setting a custom payout threshold
 # payment if pending >= threshold + txFee
 setMinPayoutFee: 500000000
+
+# time interval the pool pays out in minutes
+payoutInterval: 10 # 10 min is also the default value
 ```
 
 ## Dynamic Payout
