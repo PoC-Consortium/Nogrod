@@ -1114,7 +1114,7 @@ func (modelx *Modelx) createTransactions() {
 	}
 
 	_, err = tx.Exec("UPDATE account SET pending = pending + ? WHERE id = ?",
-		int64((len(pendingInfos)-numberTxsToCreate))*Cfg.MinerTxFee-Cfg.PoolTxFee, Cfg.FeeAccountID)
+		int64((len(pendingInfos)))*Cfg.MinerTxFee-int64(numberTxsToCreate)*Cfg.PoolTxFee, Cfg.FeeAccountID)
 	if err != nil {
 		Logger.Error("increase fee account pending", zap.Error(err))
 		tx.Rollback()

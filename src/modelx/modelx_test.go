@@ -655,7 +655,7 @@ func TestCreateTransactionsAndSendMoney(t *testing.T) {
 	var feeAcountPending int64
 	err := modelx.db.Get(&feeAcountPending, `SELECT pending FROM account WHERE id = ?`, Cfg.FeeAccountID)
 	if assert.Nil(t, err) {
-		assert.Equal(t, int64(38827000500), feeAcountPending, "increased pending for fee account correctly")
+		assert.Equal(t, int64(38837000500), feeAcountPending, "increased pending for fee account correctly")
 	}
 
 	var txCount, multiIdx, singleIdx int
