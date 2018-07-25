@@ -19,24 +19,25 @@ PoCC Goburstpool - Terms and conditions
 2. **Licensees:** (alphabetically)
 
 - All PoCC-operated pools (PoCC 0-100, PoCC 50-50, PoCC 100-0)
-- <http://0-100.burstforum.net> Burstforum 0-100
-- <http://0-100.burst-team.us> Burst-Team 0-100
-- <http://50-50.burstforum.net> Burstforum 50-50
-- <http://bibenwei.com> bibenwei
-- <http://burst.burritopool.com> burritopool
-- <http://burst.btfg.space/> BTFG Pool
-- <http://burst.daprogs.com> DAProgs Pool
-- <http://demo.creepminer.net> CreepMiner demo/experimental pool
-- <http://moverspool.ml> Moverspool
-- <http://pool.burst-team.us> Burst-Team
-- <http://pool.burstcoin.de> Burstcoin.de
-- <http://pool.burstcoin.ml> Burstcoin.ml
-- <http://pool.burstcoin.ro/> Burst Romania Pool
-- <http://pool.burstpay.net> Burstpay
-- <http://pool.creepminer.net> creepPool
-- <http://pool.fairpool.net> Fairpool.net
-- <http://pool.plotsthicken.com> Plotsthicken
-- <http://voiplanparty.com> voiplanparty
+- <https://0-100.burstforum.net> Burstforum 0-100
+- <https://0-100.burst-team.us> Burst-Team 0-100
+- <https://0-100pool.burstcoin.ro> Burst Romania Pool 0-100 
+- <https://50-50.burstforum.net> Burstforum 50-50
+- <https://bibenwei.com> bibenwei
+- <https://burst.burritopool.com> burritopool
+- <https://burst.btfg.space/> BTFG Pool
+- <https://burst.daprogs.com> DAProgs Pool
+- <https://demo.creepminer.net> CreepMiner demo/experimental pool
+- <https://moverspool.ml> Moverspool
+- <https://pool.burst-team.us> Burst-Team
+- <https://pool.burstcoin.de> Burstcoin.de
+- <https://pool.burstcoin.ml> Burstcoin.ml
+- <https://pool.burstcoin.ro/> Burst Romania Pool 50-50
+- <https://pool.burstpay.net> Burstpay
+- <https://pool.creepminer.net> creepPool
+- <https://pool.fairpool.net> Fairpool.net
+- <https://pool.plotsthicken.com> Plotsthicken
+- <https://voiplanparty.com> voiplanparty
 
 
 3. **License Grant:** Licensor hereby grants Licensee a Personal, Non-assignable & non-transferable, Perpetual, Commercial, Royalty free, Including the rights to create but not distribute derivative works, Non-exclusive license, all with accordance with the terms set forth and other legal restrictions set forth in 3rd party software used while running Software.
@@ -49,7 +50,7 @@ PoCC Goburstpool - Terms and conditions
         4.  Modify Software to suit Licensee’s needs and specifications. Licensor must be informed about these modifications.
         5.  Use the software to provide mining pool operations for the Burst cryptocurrency (BURST) network only. Licensee must adhere to the majority consensus of the Burst network.
     2.  **Perpetual:** This license is granted perpetually, as long as you do not materially breach it.
-    3.  **Binary Restricted:** Licensee may sublicense Software as a part of a larger work containing more than Software, distributed solely in Object or Binary form under a personal, non-sublicensable, limited license. Such redistribution shall be limited to unlimited codebases.
+    3.  **Binary Restricted:** Licensee may sublicense Software as a part of a larger work containing more than Software, distributed solely in Object or Binary form under a personal, non-sublicensable, limited license. Such redistribution shall be limited to unlimited codebases. Licensee is obliged to inform Licensor about each such sublicensing.
     4.  **Non Assignable & Non-Transferable:** Licensee may not assign or transfer his rights and duties under this license.
     5.  **Commercial, Royalty Free:** Licensee may use Software for any purpose, including paid-services, without any royalties.
     6.  **Including the Right to Create Derivative Works:** Licensee may create derivative works based on Software, including amending Software’s source code, modifying it, integrating it into a larger work or removing portions of Software, as long as no distribution of the derivative works is made. The derivative works, however, must be made accessible to Licensor upon his request.
