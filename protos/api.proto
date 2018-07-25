@@ -25,6 +25,7 @@ message MinerInfo {
     uint64 lastActiveBlockHeight = 7;
     int32  nConf = 8;
     string payoutDetail = 9;
+    uint64 ID = 10;
 }
 
 message PoolStatsInfo {

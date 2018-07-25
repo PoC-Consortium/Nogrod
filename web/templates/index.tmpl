@@ -413,7 +413,11 @@
 
     function updateMinerInfo(minerInfo) {
       $('#miner-name').text(minerInfo.name);
-      $('#miner-address').text(minerInfo.address);
+      $('#miner-address').html(
+          '<a href="//explore.burst.cryptoguru.org/address/' + minerInfo.ID + '">' +
+          minerInfo.address +
+          '</a>'
+      );
       if (minerInfo.pending === undefined) {
         $('#miner-pending').text('0 Burst');
       } else {

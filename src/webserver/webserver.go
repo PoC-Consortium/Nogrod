@@ -175,6 +175,7 @@ func GenMinerInfo(accountID uint64) *api.MinerInfo {
 	}
 
 	mi := &api.MinerInfo{
+		ID:                    accountID,
 		Address:               miner.Address,
 		Name:                  miner.Name,
 		Pending:               miner.Pending,
