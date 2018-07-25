@@ -37,7 +37,9 @@ PoCC Goburstpool - Terms and conditions
 - <https://pool.creepminer.net> creepPool
 - <https://pool.fairpool.net> Fairpool.net
 - <https://pool.plotsthicken.com> Plotsthicken
+- <https://pool.poolofd32th.club/> Pool Poolofd32th
 - <https://voiplanparty.com> voiplanparty
+- <https://xen.poolofd32th.club/> Xen Poolofd32th
 
 
 3. **License Grant:** Licensor hereby grants Licensee a Personal, Non-assignable & non-transferable, Perpetual, Commercial, Royalty free, Including the rights to create but not distribute derivative works, Non-exclusive license, all with accordance with the terms set forth and other legal restrictions set forth in 3rd party software used while running Software.
