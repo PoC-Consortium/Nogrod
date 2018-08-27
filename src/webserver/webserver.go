@@ -425,8 +425,8 @@ func (webServer *WebServer) checkForNewBestSubmission() {
 	newBestNonceSubmission := modelx.Cache.BestNonceSubmission()
 	blockInfo := webServer.getBlockInfo()
 
-	if blockInfo.Deadline == 0 || (blockInfo.Height == newBestNonceSubmission.Height &&
-		blockInfo.Deadline > newBestNonceSubmission.Deadline) {
+	if blockInfo.Height == newBestNonceSubmission.Height &&
+		(blockInfo.Deadline == 0 || blockInfo.Deadline > newBestNonceSubmission.Deadline) {
 		blockInfo.Deadline = newBestNonceSubmission.Deadline
 		blockInfo.MinerID = newBestNonceSubmission.MinerID
 		if newBestNonceSubmission.Name != "" {
