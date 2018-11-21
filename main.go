@@ -3,11 +3,11 @@
 package main
 
 import (
-	. "config"
-	"modelx"
-	"pool"
-	"wallethandler"
-	"webserver"
+	. "github.com/PoC-Consortium/goburstpool/pkg/config"
+	"github.com/PoC-Consortium/goburstpool/pkg/modelx"
+	"github.com/PoC-Consortium/goburstpool/pkg/pool"
+	"github.com/PoC-Consortium/goburstpool/pkg/wallethandler"
+	"github.com/PoC-Consortium/goburstpool/pkg/webserver"
 )
 
 func main() {
