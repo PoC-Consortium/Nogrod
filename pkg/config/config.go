@@ -66,7 +66,7 @@ type Config struct {
 var Cfg Config
 
 func LoadConfig() {
-	Cfg.Version = "v1.3.0"
+	Cfg.Version = "v1.3.1"
 
 	raw, err := ioutil.ReadFile("./config.yaml")
 	if err != nil {
