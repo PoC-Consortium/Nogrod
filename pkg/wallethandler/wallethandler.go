@@ -142,19 +142,30 @@ func (wh *walletHandler) SubmitNonce(nonce uint64, accountID uint64, deadline ui
 	return err
 }
 
+func (wh *walletHandler) broadcastTransaction(txBs string) (uint64, error) {
+	results, err := wh.reqAll(func(w wallet.Wallet) (interface{}, error) {
+		return w.BroadcastTransaction(&wallet.BroadcastTransactionRequest{TransactionBytes: txBs})
+	})
+	if err != nil {
+		return 0, err
+	}
+	return results[0].obj.(*wallet.BroadcastTransactionReply).TxID, nil
+}
+
 func (wh *walletHandler) SendPayment(recipient uint64, amount int64) (uint64, error) {
-	obj, err := wh.reqRandom(func(w wallet.Wallet) (interface{}, error) {
+	results, err := wh.reqAll(func(w wallet.Wallet) (interface{}, error) {
 		return w.SendMoney(&wallet.SendMoneyRequest{
 			Recipient:    recipient,
 			Deadline:     1440,
 			FeeNQT:       Cfg.PoolTxFee,
 			AmountNQT:    amount,
-			SecretPhrase: wh.secretPhrase})
+			SecretPhrase: wh.secretPhrase,
+			Broadcast:    false})
 	})
 	if err != nil {
 		return 0, err
 	}
-	return obj.(*wallet.SendMoneyReply).TxID, nil
+	return wh.broadcastTransaction(results[0].obj.(*wallet.SendMoneyReply).TransactionBytes)
 }
 
 func (wh *walletHandler) SendPayments(idToAmount map[uint64]int64) (uint64, error) {
@@ -162,17 +173,18 @@ func (wh *walletHandler) SendPayments(idToAmount map[uint64]int64) (uint64, erro
 	if err != nil {
 		return 0, err
 	}
-	obj, err := wh.reqRandom(func(w wallet.Wallet) (interface{}, error) {
+	results, err := wh.reqAll(func(w wallet.Wallet) (interface{}, error) {
 		return w.SendMoneyMulti(&wallet.SendMoneyMultiRequest{
 			Recipients:   recipients,
 			Deadline:     1440,
 			FeeNQT:       Cfg.PoolTxFee,
-			SecretPhrase: wh.secretPhrase})
+			SecretPhrase: wh.secretPhrase,
+			Broadcast:    false})
 	})
 	if err != nil {
 		return 0, err
 	}
-	return obj.(*wallet.SendMoneyMultiReply).TxID, nil
+	return wh.broadcastTransaction(results[0].obj.(*wallet.SendMoneyMultiReply).TransactionBytes)
 }
 
 func (wh *walletHandler) GetAccountInfo(accountID uint64) (*wallet.GetAccountReply, error) {
