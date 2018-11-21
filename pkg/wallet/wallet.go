@@ -30,6 +30,35 @@ func (ef errorDescriptionField) getError() string {
 	return ef.ErrorDescription
 }
 
+type transactionData struct {
+	SignatureHash            string `json:"signatureHash"`
+	UnsignedTransactionBytes string `json:"unsignedTransactionBytes"`
+	TransactionJSON          struct {
+		SenderPublicKey string `json:"senderPublicKey"`
+		Signature       string `json:"signature"`
+		FeeNQT          string `json:"feeNQT"`
+		Type            int    `json:"type"`
+		FullHash        string `json:"fullHash"`
+		Version         int    `json:"version"`
+		EcBlockID       uint64 `json:"ecBlockId,string"`
+		SignatureHash   string `json:"signatureHash"`
+		SenderRS        string `json:"senderRS"`
+		Subtype         int    `json:"subtype"`
+		AmountNQT       int64  `json:"amountNQT,string"`
+		Sender          uint64 `json:"sender,string"`
+		RecipientRS     string `json:"recipientRS"`
+		Recipient       uint64 `json:"recipient,string"`
+		EcBlockHeight   uint64 `json:"ecBlockHeight"`
+		Deadline        int    `json:"deadline"`
+		Transaction     uint64 `json:"transaction,string"`
+		Timestamp       int    `json:"timestamp"`
+		Height          uint64 `json:"height"`
+	} `json:"transactionJSON"`
+	Broadcasted      bool   `json:"broadcasted"`
+	TransactionBytes string `json:"transactionBytes"`
+	FullHash         string `json:"fullHash"`
+}
+
 type GetMiningInfoRequest struct {
 	requestTypeField
 	res GetMiningInfoReply `url:"-"`
@@ -114,8 +143,22 @@ type SendMoneyRequest struct {
 	res                           SendMoneyReply
 }
 
+type BroadcastTransactionRequest struct {
+	requestTypeField
+	TransactionBytes string `url:"transactionBytes,omitempty"`
+	TransactionJSON  string `url:"transactionJSON,omitempty"`
+	res              BroadcastTransactionReply
+}
+
+type BroadcastTransactionReply struct {
+	FullHash string `json:"fullHash"`
+	TxID     uint64 `json:"transaction,string"`
+	errorDescriptionField
+}
+
 type SendMoneyReply struct {
 	TxID uint64 `json:"transaction,string"`
+	transactionData
 	errorDescriptionField
 }
 
@@ -132,6 +175,7 @@ type SendMoneyMultiRequest struct {
 
 type SendMoneyMultiReply struct {
 	TxID uint64 `json:"transaction,string"`
+	transactionData
 	errorDescriptionField
 }
 
@@ -237,7 +281,7 @@ type GetTransactionReply struct {
 }
 
 type Wallet interface {
-	// BroadcastTransaction() (*BroadcastTransactionReply, error)
+	BroadcastTransaction(*BroadcastTransactionRequest) (*BroadcastTransactionReply, error)
 	// BuyAlias() (*BuyAliasReply, error)
 	// CalculateFullHash() (*CalculateFullHashReply, error)
 	// CancelAskOrder() (*CancelAskOrderReply, error)
@@ -460,6 +504,11 @@ func (w *wallet) GetAccountsWithRewardRecipient(req *GetAccountsWithRewardRecipi
 
 func (w *wallet) SendMoney(req *SendMoneyRequest) (*SendMoneyReply, error) {
 	req.RequestType = "sendMoney"
+	return &req.res, w.processJSONRequest("POST", req, &req.res)
+}
+
+func (w *wallet) BroadcastTransaction(req *BroadcastTransactionRequest) (*BroadcastTransactionReply, error) {
+	req.RequestType = "broadcastTransaction"
 	return &req.res, w.processJSONRequest("POST", req, &req.res)
 }
 

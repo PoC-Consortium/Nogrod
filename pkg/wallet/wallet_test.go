@@ -107,6 +107,25 @@ func TestSendMoney(t *testing.T) {
 	}
 }
 
+func TestBroadcastTransaction(t *testing.T) {
+	res1, err := w.SendMoney(&SendMoneyRequest{
+		Recipient:    6418289488649374107,
+		AmountNQT:    1,
+		FeeNQT:       10000000,
+		Deadline:     1440,
+		SecretPhrase: "glad suffer red during single glow shut slam hill death lust although",
+		Broadcast:    false})
+	if assert.Nil(t, err) {
+		assert.NotEmpty(t, res1.TxID)
+	}
+	res2, err := w.BroadcastTransaction(&BroadcastTransactionRequest{
+		TransactionBytes: res1.TransactionBytes,
+	})
+	if assert.Nil(t, err) {
+		assert.NotEmpty(t, res2.TxID)
+	}
+}
+
 func TestSendMoneyMulti(t *testing.T) {
 	res, err := w.SendMoneyMulti(&SendMoneyMultiRequest{
 		Recipients:   "12441003299556495598:100000000;11253871103436815155:20000000",
