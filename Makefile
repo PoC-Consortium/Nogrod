@@ -15,14 +15,11 @@ protos:
 api:
 	protoc --go_out=plugins=grpc:pkg/ api/api.proto
 
-build: deps libs
+build: libs
 	go build -o goburstpool
 
-build-docker: deps
+build-docker:
 	go build -o goburstpool
-
-deps:
-	dep ensure
 
 libs:
 	cd pkg/burstmath && $(MAKE)

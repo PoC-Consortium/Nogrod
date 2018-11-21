@@ -13,7 +13,7 @@
 ## Requirements
 
 - mariadb
-- go > v1.9
+- go >= v1.11
 
 ## Setup
 

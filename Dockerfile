@@ -1,4 +1,4 @@
-FROM golang:1.10.2-stretch AS base
+FROM golang:1.11.2-stretch AS base
 WORKDIR /app
 
 FROM base AS build
