@@ -59,8 +59,10 @@ type Config struct {
 	WalletTimeoutDur       time.Duration
 	PayoutInterval         int64 `yaml:"payoutInterval"`
 	PayoutIntervalDur      time.Duration
-	TrustAllWalletCerts    bool   `yaml:"trustAllWalletCerts"`
-	NodeComCert            string `yaml:"nodeComCert"`
+	TrustAllWalletCerts    bool     `yaml:"trustAllWalletCerts"`
+	NodeComCert            string   `yaml:"nodeComCert"`
+	BlacklistedAccountIDs  []uint64 `yaml:"blacklistedAccountIds"`
+	AccountIDBlacklist     map[uint64]struct{}
 }
 
 var Cfg Config
@@ -200,6 +202,10 @@ func validateConfig() {
 		Cfg.PayoutIntervalDur = time.Duration(Cfg.PayoutInterval) * time.Minute
 	}
 
+	Cfg.AccountIDBlacklist = make(map[uint64]struct{}, len(Cfg.AccountIDBlacklist))
+	for _, id := range Cfg.BlacklistedAccountIDs {
+		Cfg.AccountIDBlacklist[id] = struct{}{}
+	}
 }
 
 func (config DBConfig) DataSourceName(includeDatabase bool) string {

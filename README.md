@@ -149,6 +149,10 @@ setMinPayoutFee: 500000000
 
 # time interval the pool pays out in minutes
 payoutInterval: 10 # 10 min is also the default value
+
+# blacklisting by account id
+blacklistedAccountIds:
+- 13536843574215823231
 ```
 
 ## Dynamic Payout

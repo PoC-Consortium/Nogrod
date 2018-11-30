@@ -215,6 +215,9 @@ func (pool *Pool) processSubmitNonceRequest(w http.ResponseWriter, req *http.Req
 		w.Write(formatJSONError(1013, "submitNonce request has bad 'accountId' parameter - should be uint64"))
 		return
 	}
+	if _, blacklisted := Cfg.AccountIDBlacklist[accountID]; blacklisted {
+		return
+	}
 
 	requestLogger.Info("processing formal valid request", zap.Uint64("accountID", accountID),
 		zap.Uint64("nonce", nonce))
