@@ -1,3 +1,5 @@
+<img align="right" src="https://i.imgur.com/BUTZBpp.png" height="200">
+
 # Burstpool written in GO
 
 ## Highlights

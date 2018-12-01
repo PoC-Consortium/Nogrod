@@ -11,12 +11,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PoC-Consortium/goburstpool/pkg/burstmath"
-	. "github.com/PoC-Consortium/goburstpool/pkg/config"
-	. "github.com/PoC-Consortium/goburstpool/pkg/logger"
-	"github.com/PoC-Consortium/goburstpool/pkg/rsencoding"
-	"github.com/PoC-Consortium/goburstpool/pkg/wallet"
-	"github.com/PoC-Consortium/goburstpool/pkg/wallethandler"
+	"github.com/PoC-Consortium/Nogrod/pkg/burstmath"
+	. "github.com/PoC-Consortium/Nogrod/pkg/config"
+	. "github.com/PoC-Consortium/Nogrod/pkg/logger"
+	"github.com/PoC-Consortium/Nogrod/pkg/rsencoding"
+	"github.com/PoC-Consortium/Nogrod/pkg/wallet"
+	"github.com/PoC-Consortium/Nogrod/pkg/wallethandler"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate"

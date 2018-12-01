@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/PoC-Consortium/goburstpool/pkg/logger"
-	"github.com/PoC-Consortium/goburstpool/pkg/rsencoding"
+	. "github.com/PoC-Consortium/Nogrod/pkg/logger"
+	"github.com/PoC-Consortium/Nogrod/pkg/rsencoding"
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"

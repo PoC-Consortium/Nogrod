@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/PoC-Consortium/goburstpool/pkg/config"
+	. "github.com/PoC-Consortium/Nogrod/pkg/config"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"

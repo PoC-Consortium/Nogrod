@@ -1,7 +1,7 @@
 .PHONY: mocks protos
 
 start: build
-	./goburstpool
+	./Nogrod
 
 protos:
 	mkdir -p pkg/nodecom
@@ -16,10 +16,10 @@ api:
 	protoc --go_out=plugins=grpc:pkg/ api/api.proto
 
 build: libs
-	go build -o goburstpool
+	go build -o Nogrod
 
 build-docker:
-	go build -o goburstpool
+	go build -o Nogrod
 
 libs:
 	cd pkg/burstmath && $(MAKE)

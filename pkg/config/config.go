@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	. "github.com/PoC-Consortium/goburstpool/pkg/logger"
+	. "github.com/PoC-Consortium/Nogrod/pkg/logger"
 
 	"go.uber.org/zap"
 )

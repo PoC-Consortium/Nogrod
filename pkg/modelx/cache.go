@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	. "github.com/PoC-Consortium/goburstpool/pkg/config"
+	. "github.com/PoC-Consortium/Nogrod/pkg/config"
 )
 
 var Cache *cache

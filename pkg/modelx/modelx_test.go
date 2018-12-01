@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/PoC-Consortium/goburstpool/pkg/burstmath"
-	. "github.com/PoC-Consortium/goburstpool/pkg/config"
-	"github.com/PoC-Consortium/goburstpool/pkg/mocks"
-	"github.com/PoC-Consortium/goburstpool/pkg/wallet"
+	"github.com/PoC-Consortium/Nogrod/pkg/burstmath"
+	. "github.com/PoC-Consortium/Nogrod/pkg/config"
+	"github.com/PoC-Consortium/Nogrod/pkg/mocks"
+	"github.com/PoC-Consortium/Nogrod/pkg/wallet"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"

@@ -1,13 +1,13 @@
-// (c) 2018 PoC Consortium ALL RIGHTS RESERVED
+// (c) 2018-present PoC Consortium ALL RIGHTS RESERVED
 
 package main
 
 import (
-	. "github.com/PoC-Consortium/goburstpool/pkg/config"
-	"github.com/PoC-Consortium/goburstpool/pkg/modelx"
-	"github.com/PoC-Consortium/goburstpool/pkg/pool"
-	"github.com/PoC-Consortium/goburstpool/pkg/wallethandler"
-	"github.com/PoC-Consortium/goburstpool/pkg/webserver"
+	. "github.com/PoC-Consortium/Nogrod/pkg/config"
+	"github.com/PoC-Consortium/Nogrod/pkg/modelx"
+	"github.com/PoC-Consortium/Nogrod/pkg/pool"
+	"github.com/PoC-Consortium/Nogrod/pkg/wallethandler"
+	"github.com/PoC-Consortium/Nogrod/pkg/webserver"
 )
 
 func main() {

@@ -12,12 +12,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/PoC-Consortium/goburstpool/pkg/burstmath"
-	. "github.com/PoC-Consortium/goburstpool/pkg/config"
-	. "github.com/PoC-Consortium/goburstpool/pkg/logger"
-	. "github.com/PoC-Consortium/goburstpool/pkg/modelx"
-	"github.com/PoC-Consortium/goburstpool/pkg/nodecom"
-	"github.com/PoC-Consortium/goburstpool/pkg/wallethandler"
+	"github.com/PoC-Consortium/Nogrod/pkg/burstmath"
+	. "github.com/PoC-Consortium/Nogrod/pkg/config"
+	. "github.com/PoC-Consortium/Nogrod/pkg/logger"
+	. "github.com/PoC-Consortium/Nogrod/pkg/modelx"
+	"github.com/PoC-Consortium/Nogrod/pkg/nodecom"
+	"github.com/PoC-Consortium/Nogrod/pkg/wallethandler"
 
 	"github.com/throttled/throttled"
 	"github.com/throttled/throttled/store/memstore"

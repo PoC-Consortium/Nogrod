@@ -1,4 +1,4 @@
-module github.com/PoC-Consortium/goburstpool
+module github.com/PoC-Consortium/Nogrod
 
 require (
 	github.com/Microsoft/go-winio v0.4.11 // indirect

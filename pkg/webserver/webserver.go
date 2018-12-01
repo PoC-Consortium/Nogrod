@@ -15,11 +15,11 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/PoC-Consortium/goburstpool/pkg/api"
-	"github.com/PoC-Consortium/goburstpool/pkg/burstmath"
-	. "github.com/PoC-Consortium/goburstpool/pkg/config"
-	. "github.com/PoC-Consortium/goburstpool/pkg/logger"
-	"github.com/PoC-Consortium/goburstpool/pkg/modelx"
+	"github.com/PoC-Consortium/Nogrod/pkg/api"
+	"github.com/PoC-Consortium/Nogrod/pkg/burstmath"
+	. "github.com/PoC-Consortium/Nogrod/pkg/config"
+	. "github.com/PoC-Consortium/Nogrod/pkg/logger"
+	"github.com/PoC-Consortium/Nogrod/pkg/modelx"
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
