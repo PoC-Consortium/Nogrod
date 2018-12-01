@@ -1,5 +1,5 @@
-License for PoCC Goburstpool
-============================
+License for the Software "Nogrod" by PoC Consortium
+===================================================
 
 License Summary
 ---------------
@@ -11,10 +11,10 @@ License Summary
 *   Attribution to software creator must be made
 
 
-PoCC Goburstpool - Terms and conditions
----------------------------------------
+Nogrod - Terms and conditions
+-----------------------------
 
-1. **Preamble:** This Agreement, signed on Mar 1, 2018 (hereinafter: Effective Date) governs the relationship between Burst Pool Operator, a Business Entity, (hereinafter: Licensee) and PoC Consortium, a partnership under the laws of whose principal place of business is Germany (hereinafter: Licensor). This Agreement sets the terms, rights, restrictions and obligations on using PoCC Goburstpool (hereinafter: The Software) created and owned by Licensor, as detailed herein
+1. **Preamble:** This Agreement, signed on Mar 1, 2018 (hereinafter: Effective Date) governs the relationship between Burst Pool Operator, a Business Entity, (hereinafter: Licensee) and PoC Consortium, a partnership under the laws of whose principal place of business is Germany (hereinafter: Licensor). This Agreement sets the terms, rights, restrictions and obligations on using "Nogrod" by PoC Consortium (hereinafter: The Software) created and owned by Licensor, as detailed herein
 
 2. **Licensees:** (alphabetically)
 
