@@ -1,5 +1,7 @@
 .PHONY: libs
 
+CFLAGS := -fPIC
+
 libs:
 	cd libs; \
 	$(CC) $(CFLAGS) -c -o shabal64.o shabal64.s; \
