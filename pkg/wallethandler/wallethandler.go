@@ -165,7 +165,11 @@ func (wh *walletHandler) SendPayment(recipient uint64, amount int64) (uint64, er
 	if err != nil {
 		return 0, err
 	}
-	return wh.broadcastTransaction(results[0].obj.(*wallet.SendMoneyReply).TransactionBytes)
+
+	sendMoneyReply := results[0].obj.(*wallet.SendMoneyReply)
+	// we ignore errors here, if the transaction failed we won't find it in the blockchain afterwards
+	wh.broadcastTransaction(sendMoneyReply.TransactionBytes)
+	return sendMoneyReply.TxID, nil
 }
 
 func (wh *walletHandler) SendPayments(idToAmount map[uint64]int64) (uint64, error) {
@@ -184,7 +188,11 @@ func (wh *walletHandler) SendPayments(idToAmount map[uint64]int64) (uint64, erro
 	if err != nil {
 		return 0, err
 	}
-	return wh.broadcastTransaction(results[0].obj.(*wallet.SendMoneyMultiReply).TransactionBytes)
+
+	sendMoneyReply := results[0].obj.(*wallet.SendMoneyMultiReply)
+	// we ignore errors here, if the transaction failed we won't find it in the blockchain afterwards
+	wh.broadcastTransaction(sendMoneyReply.TransactionBytes)
+	return sendMoneyReply.TxID, nil
 }
 
 func (wh *walletHandler) GetAccountInfo(accountID uint64) (*wallet.GetAccountReply, error) {
