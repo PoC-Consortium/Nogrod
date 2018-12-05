@@ -1,6 +1,6 @@
 .PHONY: libs
 
-CFLAGS := -fPIC
+CFLAGS=$(OSFLAGS) -Wall -m64 -O3 -mtune=native -fPIC
 
 libs:
 	cd libs; \
