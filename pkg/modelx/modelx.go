@@ -515,7 +515,7 @@ func (modelx *Modelx) NewBlock(baseTarget uint64, genSig string, height uint64) 
 
 func (modelx *Modelx) createMiner(accountID uint64) (*Miner, error) {
 	if accountID == Cfg.FeeAccountID {
-		return nil, fmt.Errorf("not alloed to mine with fee account")
+		return nil, fmt.Errorf("not allowed to mine with fee account")
 	}
 
 	address := rsencoding.Encode(accountID)
