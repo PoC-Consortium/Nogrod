@@ -348,6 +348,15 @@
       }
     });
 
+    ('switch').click(function(e){
+      if ($('link[href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css"]').length == 1) {
+        $('link[href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css"]').attr('href', 'https://stackpath.bootstrapcdn.com/bootswatch/3.3.5/darkly/bootstrap.min.css');
+      }
+      else if ($('link[href="//stackpath.bootstrapcdn.com/bootswatch/3.3.5/darkly/bootstrap.min.css"]').length == 1) {
+        $('link[href="//stackpath.bootstrapcdn.com/bootswatch/3.3.5/darkly/bootstrap.min.css"]').attr('href', '//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css');
+      }
+    });
+
     function clock(id, seconds) {
       var c = $('#' + id);
       if ( seconds == 0 ) {
