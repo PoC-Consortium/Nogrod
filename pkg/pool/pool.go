@@ -142,10 +142,6 @@ func (pool *Pool) checkAndAddNewBlock() {
 			Logger.Error("creating new block", zap.Error(err))
 			return
 		}
-
-		if err != nil {
-			return
-		}
 	}
 }
 
