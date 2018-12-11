@@ -14,7 +14,7 @@
 
 ## Requirements
 
-- mariadb
+- mariadb >= 10.1
 - go >= v1.11
 
 ## Setup
