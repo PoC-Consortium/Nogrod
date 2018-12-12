@@ -138,7 +138,7 @@ type SendMoneyRequest struct {
 	FeeNQT                        int64  `url:"feeNQT,string"`
 	Deadline                      uint   `url:"deadline"`
 	ReferencedTransactionFullHash string `url:"referencedTransactionFullHash,omitempty"`
-	Broadcast                     bool   `url:"broadcast,omitempty"`
+	Broadcast                     bool   `url:"broadcast"`
 	SecretPhrase                  string `url:"secretPhrase"`
 	res                           SendMoneyReply
 }
@@ -168,7 +168,7 @@ type SendMoneyMultiRequest struct {
 	FeeNQT                        int64  `url:"feeNQT,string"`
 	Deadline                      uint   `url:"deadline"`
 	ReferencedTransactionFullHash string `url:"referencedTransactionFullHash,omitempty"`
-	Broadcast                     bool   `url:"broadcast,omitempty"`
+	Broadcast                     bool   `url:"broadcast"`
 	SecretPhrase                  string `url:"secretPhrase"`
 	res                           SendMoneyMultiReply
 }

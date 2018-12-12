@@ -117,6 +117,7 @@ func TestBroadcastTransaction(t *testing.T) {
 		Broadcast:    false})
 	if assert.Nil(t, err) {
 		assert.NotEmpty(t, res1.TxID)
+		assert.False(t, res1.Broadcasted)
 	}
 	res2, err := w.BroadcastTransaction(&BroadcastTransactionRequest{
 		TransactionBytes: res1.TransactionBytes,
