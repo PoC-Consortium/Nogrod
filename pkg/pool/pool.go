@@ -238,6 +238,12 @@ func (pool *Pool) processSubmitNonceRequest(w http.ResponseWriter, req *http.Req
 		return
 	}
 
+	if ua := req.Header.Get("User-Agent"); ua == "" {
+		miner.UserAgent = req.Header.Get("X-Miner")
+	} else {
+		miner.UserAgent = ua
+	}
+
 	// Calculate deadline and check against limit
 	deadlineReq := burstmath.NewCalcDeadlineRequest(accountID, nonce, ri.BaseTarget, ri.Scoop, ri.GenSig)
 	deadline := pool.deadlineRequestHandler.CalcDeadline(deadlineReq)

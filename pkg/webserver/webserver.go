@@ -77,6 +77,7 @@ type MinerInfo struct {
 	LastActiveBlockHeight uint64
 	Capacity              float64
 	Deadline              uint64
+	UserAgent             string
 }
 
 type IndexInfo struct {
@@ -239,7 +240,8 @@ func (webServer *WebServer) updateMinerInfos() {
 			NConf:                 len(miner.DeadlinesParams),
 			Capacity:              capacity,
 			Deadline:              miner.CurrentDeadline(),
-			LastActiveBlockHeight: miner.CurrentBlockHeight()}
+			LastActiveBlockHeight: miner.CurrentBlockHeight(),
+			UserAgent:             miner.UserAgent}
 		miner.Unlock()
 		mis = append(mis, mi)
 

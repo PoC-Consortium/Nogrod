@@ -47,6 +47,8 @@ type Miner struct {
 
 	PayoutDetail string `db:"account.payout_detail"`
 
+	UserAgent string
+
 	// this mutex ensures that there is only one concurrent write process
 	// to the db for each miner
 	dbMu sync.Mutex

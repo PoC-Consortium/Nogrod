@@ -8,6 +8,7 @@
     <th data-sort="float"><i class="sort-toggle fa fa-sort" aria-hidden="true"></i>Historical Share</th>
     <th data-sort="float" data-sort-onload="yes" data-sort-default="desc"><i class="sort-toggle fa fa-sort" aria-hidden="true"></i>Effective Capacity</th>
     <th data-sort="int"><i class="sort-toggle fa fa-sort" aria-hidden="true"></i>Confirmed Deadlines (Last nAvg Rounds)</th>
+    <th data-sort="string"><i class="sort-toggle fa fa-sort" aria-hidden="true"></i>Miner</th>
   </thead>
 
   <tbody>
@@ -23,6 +24,7 @@
       <td>{{$minerInfo.HistoricalShare | printf "%.3f" | html}} %</td>
       <td>{{$minerInfo.Capacity |printf "%.4f"| html}} TB</td>
       <td>{{$minerInfo.NConf | html}}</td>
+      <td>{{$minerInfo.UserAgent | html}}</td>
     </tr>
     {{end}}
   </tbody>
