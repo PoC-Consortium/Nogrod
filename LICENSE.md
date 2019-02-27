@@ -30,6 +30,7 @@ Nogrod - Terms and conditions
 - <https://burst.daprogs.com> DAProgs Pool
 - <https://demo.creepminer.net> CreepMiner demo/experimental pool
 - <https://moverspool.ml> Moverspool
+- <https://pool.burst.fun> Burst Fun Pool
 - <https://pool.burst-team.us> Burst-Team
 - <https://pool.burstcoin.de> Burstcoin.de
 - <https://pool.burstcoin.ml> Burstcoin.ml
@@ -37,6 +38,7 @@ Nogrod - Terms and conditions
 - <https://pool.burstpay.net> Burstpay
 - <https://pool.creepminer.net> creepPool
 - <https://pool.fairpool.net> Fairpool.net
+- <https://pool.getburst.net> GetBurst Pool
 - <https://pool.plotsthicken.com> Plotsthicken
 - <https://pool.poolofd32th.club/> Pool Poolofd32th
 - <https://voiplanparty.com> voiplanparty
