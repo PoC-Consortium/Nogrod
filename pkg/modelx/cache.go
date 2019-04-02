@@ -42,11 +42,12 @@ type blocks struct {
 }
 
 type RoundInfo struct {
-	Scoop      uint32
-	BaseTarget uint64
-	Height     uint64
-	GenSig     []byte
-	RoundStart time.Time
+	Scoop               uint32
+	BaseTarget          uint64
+	Height              uint64
+	GenSig              []byte
+	RoundStart          time.Time
+	GenerationSignature string
 }
 
 func InitCache() {
@@ -131,11 +132,12 @@ func (c *cache) StoreCurrentBlock(b Block) {
 		"height":              b.Height,
 		"targetDeadline":      Cfg.DeadlineLimit})
 	c.roundInfo.Store(RoundInfo{
-		Scoop:      b.Scoop,
-		BaseTarget: b.BaseTarget,
-		Height:     b.Height,
-		GenSig:     b.GenerationSignatureBytes,
-		RoundStart: b.Created})
+		Scoop:               b.Scoop,
+		BaseTarget:          b.BaseTarget,
+		Height:              b.Height,
+		GenSig:              b.GenerationSignatureBytes,
+		GenerationSignature: b.GenerationSignature,
+		RoundStart:          b.Created})
 	c.miningInfoJSON.Store(miningInfoBytes)
 	c.currentBlock.Store(b)
 }

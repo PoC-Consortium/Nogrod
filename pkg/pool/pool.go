@@ -94,7 +94,7 @@ func (pool *Pool) forge(currentBlock Block) {
 			}
 
 			// ignore worse deadlines
-			if nonceSubmission.Height == bestNonceSubmission.Height &&
+			if nonceSubmission.GenerationSignature == bestNonceSubmission.GenerationSignature &&
 				nonceSubmission.Deadline >= bestNonceSubmission.Deadline {
 				continue
 			}
@@ -130,19 +130,7 @@ func (pool *Pool) checkAndAddNewBlock() {
 	if err != nil {
 		return
 	}
-
-	oldBlock := Cache.CurrentBlock()
-	if oldBlock.Height < miningInfo.Height {
-		Logger.Info("got new Block with height", zap.Uint64("height", miningInfo.Height))
-
-		err := pool.modelx.NewBlock(miningInfo.BaseTarget, miningInfo.GenerationSignature,
-			miningInfo.Height)
-
-		if err != nil {
-			Logger.Error("creating new block", zap.Error(err))
-			return
-		}
-	}
+	pool.modelx.MaybeSwitchOrNewBlock(miningInfo.BaseTarget, miningInfo.GenerationSignature, miningInfo.Height)
 }
 
 func (pool *Pool) checkAndAddNewBlockJob() {
@@ -268,13 +256,14 @@ func (pool *Pool) processSubmitNonceRequest(w http.ResponseWriter, req *http.Req
 
 	// Check if this is the best deadline and submit it to the wallet as soon as it comes close
 	nonceSubmission := NonceSubmission{
-		MinerID:    accountID,
-		Name:       miner.Name,
-		Address:    miner.Address,
-		Deadline:   deadline,
-		Nonce:      nonce,
-		RoundStart: ri.RoundStart,
-		Height:     ri.Height}
+		MinerID:             accountID,
+		Name:                miner.Name,
+		Address:             miner.Address,
+		Deadline:            deadline,
+		Nonce:               nonce,
+		RoundStart:          ri.RoundStart,
+		GenerationSignature: ri.GenerationSignature,
+		Height:              ri.Height}
 	pool.nonceSubmissions <- &nonceSubmission
 }
 
@@ -349,13 +338,14 @@ func (s *nodeServer) SubmitNonce(ctx context.Context, msg *nodecom.SubmitNonceRe
 		// TODO: we need to get the round start of exactly the block on which
 		// was submitted
 		nonceSubmission := NonceSubmission{
-			MinerID:    msg.AccountID,
-			Name:       m.Name,
-			Address:    m.Address,
-			Deadline:   msg.Deadline,
-			Nonce:      msg.Nonce,
-			RoundStart: ri.RoundStart,
-			Height:     ri.Height}
+			MinerID:             msg.AccountID,
+			Name:                m.Name,
+			Address:             m.Address,
+			Deadline:            msg.Deadline,
+			Nonce:               msg.Nonce,
+			RoundStart:          ri.RoundStart,
+			GenerationSignature: ri.GenerationSignature,
+			Height:              ri.Height}
 		s.nonceSubmissions <- &nonceSubmission
 	}
 	return &nodecom.SubmitNonceReply{}, nil

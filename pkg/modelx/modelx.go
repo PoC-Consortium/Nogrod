@@ -93,13 +93,14 @@ type Modelx struct {
 }
 
 type NonceSubmission struct {
-	Nonce      uint64
-	Deadline   uint64
-	MinerID    uint64    `db:"miner.id"`
-	Height     uint64    `db:"block.height"`
-	Name       string    `db:"account.name"`
-	Address    string    `db:"account.address"`
-	RoundStart time.Time `db:"block.created"`
+	Nonce               uint64
+	Deadline            uint64
+	MinerID             uint64    `db:"miner.id"`
+	Height              uint64    `db:"block.height"`
+	Name                string    `db:"account.name"`
+	Address             string    `db:"account.address"`
+	RoundStart          time.Time `db:"block.created"`
+	GenerationSignature string    `db:"block.generation_signature"`
 }
 
 type WonBlock struct {
@@ -149,7 +150,7 @@ func NewModelX(walletHandler wallethandler.WalletHandler, migrateDB bool) *Model
 			Logger.Fatal("getting inital mining info failed", zap.Error(err))
 		}
 
-		err = modelx.NewBlock(miningInfo.BaseTarget, miningInfo.GenerationSignature, miningInfo.Height)
+		err = modelx.newBlock(miningInfo.BaseTarget, miningInfo.GenerationSignature, miningInfo.Height)
 		if err != nil {
 			Logger.Fatal("creating first block failed", zap.Error(err))
 		}
@@ -436,10 +437,36 @@ func (modelx *Modelx) GetBestNonceSubmissionOnBlock(height uint64) (*NonceSubmis
 	return &ns, nil
 }
 
-func (modelx *Modelx) NewBlock(baseTarget uint64, genSig string, height uint64) error {
+func (modelx *Modelx) MaybeSwitchOrNewBlock(baseTarget uint64, genSig string, height uint64) {
+	oldBlock := Cache.CurrentBlock()
+
 	modelx.newBlockMu.Lock()
 	defer modelx.newBlockMu.Unlock()
 
+	if oldBlock.Height == height && oldBlock.GenerationSignature != genSig {
+		// fork handling
+		Logger.Info("switch new Block with same height", zap.Uint64("height", height))
+
+		err := modelx.switchBlock(baseTarget, genSig, height)
+
+		if err != nil {
+			Logger.Error("switching new block", zap.Error(err))
+			return
+		}
+	} else if oldBlock.Height != height {
+		Logger.Info("got new Block with height", zap.Uint64("height", height))
+
+		err := modelx.newBlock(baseTarget, genSig, height)
+
+		if err != nil {
+			Logger.Error("creating new block", zap.Error(err))
+			return
+		}
+	}
+	return
+}
+
+func (modelx *Modelx) newBlock(baseTarget uint64, genSig string, height uint64) error {
 	if _, exists := Cache.WasSlowBlock(height); exists {
 		return nil
 	}
@@ -511,6 +538,50 @@ func (modelx *Modelx) NewBlock(baseTarget uint64, genSig string, height uint64) 
 		modelx.cacheRewardRecipients()
 		Cache.StoreCurrentBlock(newBlock)
 	}
+
+	return nil
+}
+
+func (modelx *Modelx) switchBlock(baseTarget uint64, genSig string, height uint64) error {
+	genSigBytes, err := burstmath.DecodeGeneratorSignature(genSig)
+	if err != nil {
+		return err
+	}
+
+	_, err = modelx.db.Exec(
+		"UPDATE block SET generation_signature = ?, baseTarget = ? WHERE height = ?",
+		genSig, baseTarget, height)
+	if err != nil {
+		return err
+	}
+
+	// clear submissions on current block
+	Cache.MinerRange(func(_, value interface{}) bool {
+		miner := value.(*Miner)
+
+		miner.Lock()
+		_, err = modelx.db.Exec(
+			"DELETE nonce_submission WHERE miner_id = ? AND block_height = ?",
+			miner.ID, height)
+		if err != nil {
+			Logger.Error("failed to delete nonce submission", zap.Error(err))
+			miner.Unlock()
+			return true
+		}
+		miner.removeDeadlineParams(height)
+		miner.Unlock()
+
+		return true
+	})
+
+	Cache.StoreCurrentBlock(Block{
+		Height:                   height,
+		BaseTarget:               baseTarget,
+		Scoop:                    burstmath.CalcScoop(height, genSigBytes),
+		GenerationSignature:      genSig,
+		GenerationSignatureBytes: genSigBytes,
+		Created:                  time.Now(),
+	})
 
 	return nil
 }
@@ -673,14 +744,7 @@ func (modelx *Modelx) UpdateOrCreateNonceSubmission(miner *Miner, height, deadli
 	}
 
 	if !blockExists {
-		ri := Cache.GetRoundInfo()
-
-		if ri.Height != height {
-			err := modelx.NewBlock(baseTarget, genSig, height)
-			if err != nil {
-				return err
-			}
-		}
+		modelx.MaybeSwitchOrNewBlock(baseTarget, genSig, height)
 	}
 
 	sql := "INSERT INTO nonce_submission (miner_id, block_height, deadline, nonce) VALUES (?, ?, ?, ?)"
