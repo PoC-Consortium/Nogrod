@@ -555,7 +555,9 @@ func (modelx *Modelx) switchBlock(baseTarget uint64, genSig string, height uint6
 		return err
 	}
 
-	// clear submissions on current block
+	// TODO: After we deleted the current deadlines there is a *short* timeframe in which
+	// miners can submit deadlines on the old block. New deadlines that are bigger would
+	// therefor be blocked and not accpeted.
 	Cache.MinerRange(func(_, value interface{}) bool {
 		miner := value.(*Miner)
 
