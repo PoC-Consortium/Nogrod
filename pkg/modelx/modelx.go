@@ -555,9 +555,17 @@ func (modelx *Modelx) switchBlock(baseTarget uint64, genSig string, height uint6
 		return err
 	}
 
-	// TODO: After we deleted the current deadlines there is a *short* timeframe in which
-	// miners can submit deadlines on the old block. New deadlines that are bigger would
-	// therefor be blocked and not accpeted.
+	newBlock := Block{
+		Height:                   height,
+		BaseTarget:               baseTarget,
+		Scoop:                    burstmath.CalcScoop(height, genSigBytes),
+		GenerationSignature:      genSig,
+		GenerationSignatureBytes: genSigBytes,
+		Created:                  time.Now(),
+	}
+
+	Cache.StoreRoundInfo(newBlock)
+
 	Cache.MinerRange(func(_, value interface{}) bool {
 		miner := value.(*Miner)
 
@@ -576,14 +584,7 @@ func (modelx *Modelx) switchBlock(baseTarget uint64, genSig string, height uint6
 		return true
 	})
 
-	Cache.StoreCurrentBlock(Block{
-		Height:                   height,
-		BaseTarget:               baseTarget,
-		Scoop:                    burstmath.CalcScoop(height, genSigBytes),
-		GenerationSignature:      genSig,
-		GenerationSignatureBytes: genSigBytes,
-		Created:                  time.Now(),
-	})
+	Cache.StoreMiningInfo(&newBlock)
 
 	return nil
 }

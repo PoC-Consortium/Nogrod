@@ -125,12 +125,8 @@ func (c *cache) GetMinerCount() int32 {
 	return atomic.LoadInt32(&c.minerCount)
 }
 
-func (c *cache) StoreCurrentBlock(b Block) {
-	miningInfoBytes, _ := json.Marshal(map[string]interface{}{
-		"baseTarget":          b.BaseTarget,
-		"generationSignature": b.GenerationSignature,
-		"height":              b.Height,
-		"targetDeadline":      Cfg.DeadlineLimit})
+func (c *cache) StoreRoundInfo(b Block) {
+	c.currentBlock.Store(b)
 	c.roundInfo.Store(RoundInfo{
 		Scoop:               b.Scoop,
 		BaseTarget:          b.BaseTarget,
@@ -138,8 +134,20 @@ func (c *cache) StoreCurrentBlock(b Block) {
 		GenSig:              b.GenerationSignatureBytes,
 		GenerationSignature: b.GenerationSignature,
 		RoundStart:          b.Created})
+}
+
+func (c *cache) StoreMiningInfo(b *Block) {
+	miningInfoBytes, _ := json.Marshal(map[string]interface{}{
+		"baseTarget":          b.BaseTarget,
+		"generationSignature": b.GenerationSignature,
+		"height":              b.Height,
+		"targetDeadline":      Cfg.DeadlineLimit})
 	c.miningInfoJSON.Store(miningInfoBytes)
-	c.currentBlock.Store(b)
+}
+
+func (c *cache) StoreCurrentBlock(b Block) {
+	c.StoreRoundInfo(b)
+	c.StoreMiningInfo(&b)
 }
 
 func (c *cache) GetMiningInfoJSON() []byte {
