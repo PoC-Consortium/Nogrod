@@ -22,6 +22,7 @@ Nogrod - Terms and conditions
 - <https://0-100.burstforum.net> Burstforum 0-100
 - <https://0-100.burst-team.us> Burst-Team 0-100
 - <https://0-100pool.burstcoin.ro> Burst Romania Pool 0-100 
+- <https://0-100.burst.wickedmine.com> Wickedmine 0-100
 - <https://50-50.burstforum.net> Burstforum 50-50
 - <https://bibenwei.com> bibenwei
 - <https://bmf50pool.burstcoin.ro> BMF50 (Burst Marketing Fund 50% Fee)
