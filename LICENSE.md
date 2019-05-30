@@ -26,6 +26,7 @@ Nogrod - Terms and conditions
 - <https://50-50.burstforum.net> Burstforum 50-50
 - <https://bibenwei.com> bibenwei
 - <https://bmf50pool.burstcoin.ro> BMF50 (Burst Marketing Fund 50% Fee)
+- <http://brs.kuangjiwan.com> KuangJiWan
 - <https://burst.burritopool.com> burritopool
 - <https://burst.btfg.space/> BTFG Pool
 - <https://burst.daprogs.com> DAProgs Pool
