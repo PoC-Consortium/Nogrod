@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"text/template"
 	"time"
+	"math"
 
 	"github.com/PoC-Consortium/Nogrod/pkg/api"
 	"github.com/PoC-Consortium/Nogrod/pkg/burstmath"
@@ -431,6 +432,9 @@ func (webServer *WebServer) checkForNewBestSubmission() {
 	if blockInfo.Height == newBestNonceSubmission.Height &&
 		(blockInfo.Deadline == 0 || blockInfo.Deadline > newBestNonceSubmission.Deadline) {
 		blockInfo.Deadline = newBestNonceSubmission.Deadline
+		if Cfg.SodiumDeadlines {
+			blockInfo.Deadline = uint64(math.Log(float64(blockInfo.Deadline))*240/math.Log(240))
+		}
 		blockInfo.MinerID = newBestNonceSubmission.MinerID
 		if newBestNonceSubmission.Name != "" {
 			blockInfo.Miner = newBestNonceSubmission.Name
