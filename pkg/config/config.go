@@ -31,6 +31,7 @@ type Config struct {
 	MinimumPayout          int64    `yaml:"minimumPayout"`
 	PoolFeeShare           float64  `yaml:"poolFeeShare"`
 	DeadlineLimit          uint64   `yaml:"deadlineLimit"`
+	SodiumDeadlines        bool     `yaml:"sodiumDeadlines"`
 	WinnerShare            float64  `yaml:"winnerShare"`
 	DB                     DBConfig `yaml:"db"`
 	WalletDB               DBConfig `yaml:"walletDB"`
