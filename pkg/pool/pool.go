@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strconv"
 	"time"
+	"math"
 
 	"github.com/PoC-Consortium/Nogrod/pkg/burstmath"
 	. "github.com/PoC-Consortium/Nogrod/pkg/config"
@@ -66,6 +67,9 @@ func (pool *Pool) forge(currentBlock Block) {
 
 	var after <-chan time.Time
 	updateSubmitTimer := func(deadline uint64, roundStart time.Time) {
+		if Cfg.SodiumDeadlines && deadline > 0 {
+			deadline = uint64(math.Log(float64(deadline))*240/math.Log(240))
+		}
 		due := time.Duration(deadline)*time.Second - time.Since(roundStart) - submitBefore
 		Logger.Info("planning submitNonce", zap.Duration("delay", due))
 		after = time.After(due)

@@ -8,6 +8,7 @@ minimumPayout: 25000000000
 txFee: 100000000
 poolFeeShare: 0.0
 deadlineLimit: 10000000000
+SodiumDeadlines: true
 walletDB:
   user: "root"
   password: ""
